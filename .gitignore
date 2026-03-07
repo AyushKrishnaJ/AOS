@@ -1,0 +1,6 @@
+*
+!stage*/
+!stage*/**
+!.gitignore
+!README.md
+
