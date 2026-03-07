@@ -73,7 +73,7 @@ if (functionNum == GET_CODE_PAGE) then
     while (iter1 < 16) do // iter1 is used to iterate the 16 disk map table entries
         while (iter2 < 8) do // iter2 is used for iterating code page entry in disk map table i.e 4, 5, 6, 7
             if ([DISK_MAP_TABLE + iter1 * 10 + iter2] == arg1) then
-                retval = [PAGE_TABLE_BASE + 20 * iter1 + (iter2 - 4) * 2];
+                retval = [PAGE_TABLE_BASE + 20 * iter1 + iter2 * 2];
                 if (retval != -1) then
                     [MEMORY_FREE_LIST + retval] = [MEMORY_FREE_LIST + retval] + 1;
                     return;
