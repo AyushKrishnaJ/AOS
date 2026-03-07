@@ -1,0 +1,52 @@
+alias retval R0;
+alias functionNum R1;
+alias argument1 R2;
+
+if (functionNum == GET_FREE_PAGE) then
+    // increment wait mem count in system status table
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;
+
+    // if mem free count = 0, i.e no more free pages are available
+    while ([SYSTEM_STATUS_TABLE + 2] == 0) do
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = WAIT_MEM;
+        multipush(R0, R1, R2);
+        call SCHEDULER;
+        multipop(R0, R1, R2);
+    endwhile;
+
+    // decrement wait count
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+    // decrement free count
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+    alias iter R3;
+    iter = 0;
+    while (iter < 128) do
+        if ([MEMORY_FREE_LIST + iter] == 0) then
+            retval = iter;
+            [MEMORY_FREE_LIST + iter] = 1;
+            break;
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    return;
+endif;
+
+if (functionNum == RELEASE_PAGE) then
+    [MEMORY_FREE_LIST + argument1] = [MEMORY_FREE_LIST + argument1] - 1;
+    if ([MEMORY_FREE_LIST + argument1] == 0) then
+        [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+    endif;
+
+    alias iter R3;
+    iter = 0;
+    while (iter < 16) do
+        if ([PROCESS_TABLE + iter * 16 + 4] == WAIT_MEM) then
+            [PROCESS_TABLE + iter * 16 + 4] = READY;
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    return;
+endif;

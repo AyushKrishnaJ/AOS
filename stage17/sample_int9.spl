@@ -1,0 +1,161 @@
+breakpoint;
+alias currProcessTable R0;
+currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+
+// saving user stack pointer before changing to kernel stack
+alias userSP R1;
+userSP = SP;
+[currProcessTable + 13] = SP;
+
+// switch to kernel stack
+SP = [currProcessTable + 11] * 512 - 1;
+
+// set Mode flag to syscall number
+[currProcessTable + 9] = 9;
+
+// getting file name arguement from userSP (we have to convert logical addr to physical addr)
+// file name arguement will be in userSP - 4 (current userSP points to IP + 2, userSP -1 points to return val, userSP - 2 points to arg 3, userSP - 3 points to arg 2)
+alias filename R2;
+// first part calcs corresponding physical page address, second part its offset
+filename = [[PTBR + ((userSP - 4) / 512) * 2] * 512 + ((userSP - 4) % 512)];
+
+// Inode table has at max 60 files, each consists of 16 words (= 960 words)
+// we iterate 60 times and check if a file with the same name exists and it is an executable file
+// inode table format - file type, file name, file size, user id, permission, unused(3), datablock 1 - 4, usused(4)
+// executable file type = 3
+
+alias iter R3;
+alias fileNum R4;
+iter = 0;
+fileNum = -1;
+
+// maximum no of files possible is 60
+while (iter < 60) do
+    if ([INODE_TABLE + iter * 16 + 1] == filename && [INODE_TABLE + iter * 16] == 3) then
+        fileNum = iter;
+    endif;
+    iter = iter + 1;
+endwhile;
+
+alias retValAddr R5;
+retValAddr = [PTBR + ((userSP - 1) / 512) * 2] * 512 + ((userSP - 1) % 512);
+
+// if file doesnt exist or file is not in XEXE format then return with ret val -1
+if (fileNum == -1) then
+    [retValAddr] = -1;
+    // setting mode flag
+    [currProcessTable + 9] = 0;
+    // switch to user stack
+    SP = [currProcessTable + 13];
+    ireturn;
+endif;
+breakpoint;
+// saving register context before calling exit process function in process manager
+multipush(R0, R1, R2, R3, R4, R5);
+alias functionNum R1;
+alias ProcessToExit R2;
+
+functionNum = EXIT_PROCESS;
+ProcessToExit = [SYSTEM_STATUS_TABLE + 1];
+
+call PROCESS_MANAGER;
+multipop(R0, R1, R2, R3, R4, R5);
+breakpoint;
+// reclaim the user area page for the new process 
+// this is done by incrementing memory free list corresponding to this page number and decrementing mem-free-count in system status table
+
+[MEMORY_FREE_LIST + [currProcessTable + 11]] = [MEMORY_FREE_LIST + [currProcessTable + 11]] + 1;
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+// delete later and see what happens
+// resetting Stack Pointer to start of stack for the new process
+SP = [currProcessTable + 11] * 512 - 1;
+
+// new process uses the same pid as old process so we need to update the state of process from terminated (which we changed it to in Exit Process function call) to Running
+
+[currProcessTable + 4] = RUNNING;
+
+// store inode index in process table
+
+[currProcessTable + 7] = fileNum;
+
+// process table for the new process is set, now we have to setup page table for the new process
+
+// allocating library pages (they are always at 63, 64)
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+breakpoint;
+// allocating stack and heap using get free page function
+multipush(R0, R1, R2, R3, R4, R5);
+alias freePage R0;
+// alias functionNum R1; commented out since we have already declared alias in EXIT PROCESS module function call
+
+functionNum = GET_FREE_PAGE;
+// heap allocation
+call MEMORY_MANAGER;
+[PTBR + 4] = freePage;
+[PTBR + 5] = "0110";
+call MEMORY_MANAGER;
+[PTBR + 6] = freePage;
+[PTBR + 7] = "0110";
+
+// stack allocation
+call MEMORY_MANAGER;
+[PTBR + 16] = freePage;
+[PTBR + 17] = "0110";
+call MEMORY_MANAGER;
+[PTBR + 18] = freePage;
+[PTBR + 19] = "0110";
+multipop(R0, R1, R2, R3, R4, R5);
+breakpoint;
+// finding num of code blocks
+// 2 cases
+// if size of file is divisible by 512 (say 1024) then it requires only 2 code pages
+// if size of file is not divisible by 512 (say 1025) then it requires 1025 / 512 + 1 code pages (i.e 3)
+alias numBlock R6;
+if ([INODE_TABLE + fileNum * 16 + 2] % 512 == 0) then
+    numBlock = [INODE_TABLE + fileNum * 16 + 2] / 512;
+else
+    numBlock = [INODE_TABLE + fileNum * 16 + 2] / 512 + 1;
+endif;
+
+// we got the number of blocks where code exists in numBlock (val is 0 - 4 inclusive)
+// there is a major potential issue here which might cause error later on
+// in the multipush multipop block whatever registers we pushed might get changed that is why we do multipop
+// so we wont be able to use the pushed registers inside multipush multipop block
+// so we introduce a dummy register R7 so that even if it is edited inside the function since R7 didnt store any valuable information we cant do R7 = R0 (R0 has the freePage) and then do multipop
+breakpoint;
+iter = 0;
+alias holder R7;
+while (iter < 4) do
+    if (iter < numBlock) then 
+        multipush(R0, R1, R2, R3, R4, R5, R6);
+        // alias freePage R0; commented out since we have already declared alias in first GET FREE PAGE module function call
+        // alias functionNum R1; commented out since we have already declared alias in EXIT PROCESS module function call
+        functionNum = GET_FREE_PAGE;
+        call MEMORY_MANAGER;
+        holder = freePage;
+        multipop(R0, R1, R2, R3, R4, R5, R6);
+        
+        loadi(holder, [INODE_TABLE + fileNum * 16 + 8 + iter]);
+        [PTBR + 8 + iter * 2] = holder;
+        [PTBR + 9 + iter * 2] = "0100";
+    else
+        [PTBR + 8 + iter * 2] = -1;
+        [PTBR + 9 + iter * 2] = "0000";
+    endif;
+    iter = iter + 1;
+endwhile;
+
+// setting the next ip to top of user stack 
+[[PTBR + 16] * 512] = [[PTBR + 8] * 512 + 1];
+
+// change sp to user stack which will be 8th page in virtual address space
+SP = 8 * 512;
+
+alias currProcessTable R0;
+[currProcessTable + 9] = 0;
+breakpoint;
+ireturn;

@@ -1,0 +1,62 @@
+alias functionNum R1;
+alias processPID R2;
+// process to exit will have pid
+// remove the page corresponding to user area page by calling the release page function in memory manager
+if (functionNum == FREE_USER_AREA_PAGE) then
+    alias pageToRelease R3;
+    pageToRelease = [PROCESS_TABLE + processPID * 16 + 11];
+    multipush(R1, R2, R3);
+    functionNum = RELEASE_PAGE;
+    // for module calls R0 is ret, R1 is functionNum, R2 = arg1, R3 = arg2, R4 = arg3
+    R2 = pageToRelease;
+    call MEMORY_MANAGER;
+    multipop(R1, R2, R3);
+    return;
+endif;
+
+// exit process is an abstraction which is just used to call free_user_area_page and free_page_table
+if (functionNum == EXIT_PROCESS) then
+    multipush(R1, R2);
+    functionNum = FREE_PAGE_TABLE;
+    call PROCESS_MANAGER;
+    multipop(R1, R2);
+
+    multipush(R1, R2);
+    functionNum = FREE_USER_AREA_PAGE;
+    call PROCESS_MANAGER;
+    multipop(R1, R2);
+
+    [PROCESS_TABLE + processPID * 16 + 4] = TERMINATED;
+    return;
+endif;
+
+if (functionNum == FREE_PAGE_TABLE) then
+    alias pageTableEntry R3;
+    pageTableEntry = [PROCESS_TABLE + processPID * 16 + 14];
+
+    // invalidate library pages
+    [pageTableEntry + 0] = -1;
+    [pageTableEntry + 1] = "0000";
+    [pageTableEntry + 2] = -1;
+    [pageTableEntry + 3] = "0000";
+
+    // invalidate all other pages and release them
+    alias iter R4;
+    iter = 2;
+    while (iter < 10) do
+        if ([pageTableEntry + iter * 2] != -1) then
+            alias pageToKill R5;
+            pageToKill = [pageTableEntry + iter * 2];
+            multipush(R1, R2, R3, R4, R5);
+            functionNum = RELEASE_PAGE;
+            R2 = pageToKill;
+            call MEMORY_MANAGER;
+            multipop(R1, R2, R3, R4, R5);
+        endif;
+        [pageTableEntry + iter * 2] = -1;
+        [pageTableEntry + iter * 2 + 1] = "0000";
+        iter = iter + 1;
+    endwhile;
+
+    return;
+endif;

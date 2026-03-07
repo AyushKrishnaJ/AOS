@@ -1,0 +1,48 @@
+// Settings mode flag to syscall number 
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 5;
+
+alias userSP R0;
+userSP = SP;
+
+// saving sp to process table
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+
+// setting sp to kernel stack 
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+alias physicalPageNum R1;
+alias offset R2;
+alias fileDescPhysicalAddr R3;
+
+// Calculating Physical page number of arguement 1
+physicalPageNum = [PTBR + 2 * ((userSP - 4) / 512)];
+offset = (userSP - 4) % 512;
+
+// Found the physical page number
+fileDescPhysicalAddr = (physicalPageNum * 512) + offset;
+
+// fileDescriptor has the value where we should output the value to 
+alias fileDescriptor R4;
+fileDescriptor = [fileDescPhysicalAddr];
+
+// checking if file descriptor is equal to -2 or not (-2 is for terminal write)
+// if its not -2 then we save return value as 0
+// else cal addr of arguement 2, print it, set ret val to 0
+if (fileDescriptor != -2) then
+	alias physicalAddrRetVal R5;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = -1;
+else
+	alias word R5;
+	word = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + ((userSP - 3) % 512)];
+	print word;
+	alias physicalAddrRetVal R6;
+	physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = 0;
+endif;
+
+SP = userSP;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+
+ireturn;

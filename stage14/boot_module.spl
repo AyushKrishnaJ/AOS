@@ -1,0 +1,166 @@
+// library 
+loadi(63,13);
+loadi(64,14);
+
+// init process
+loadi(65,7);
+loadi(66,8);
+
+// exhandler
+loadi(2,15);
+loadi(3,16);
+
+// timer interrupt
+loadi(4,17);
+loadi(5,18);
+
+// int 7
+loadi(16, 29);
+loadi(17,30);
+
+// int 10
+loadi(22,35);
+loadi(23,36);
+
+// loading even exec from disk to memory (got 69 from inodeusertable)
+loadi(85,69);
+
+// loading prime exec from disk to memory (got 70 from inodeusertable)
+loadi(91,70);
+
+// scheduler module mod 5
+loadi(50,63);
+loadi(51,64);
+
+// INIT PROCESS 
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR = 10;
+
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+[PTBR+4] = 78;
+[PTBR+5] = "0110";
+[PTBR+6] = 79;
+[PTBR+7] = "0110";
+
+[PTBR+8] = 65;
+[PTBR+9] = "0100";
+[PTBR+10] = 66;
+[PTBR+11] = "0100";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1;
+[PTBR+15] = "0000";
+
+[PTBR+16] = 76;
+[PTBR+17] = "0110";
+[PTBR+18] = 77;
+[PTBR+19] = "0110";
+
+// Page table entry for even exec process
+PTBR = PAGE_TABLE_BASE + 40;
+PTLR = 10;
+
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+[PTBR+4] = 86;
+[PTBR+5] = "0110";
+[PTBR+6] = 87;
+[PTBR+7] = "0110";
+
+[PTBR+8] = 85;
+[PTBR+9] = "0100";
+[PTBR+10] = -1;
+[PTBR+11] = "0000";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1;
+[PTBR+15] = "0000";
+
+[PTBR+16] = 88;
+[PTBR+17] = "0110";
+[PTBR+18] = 89;
+[PTBR+19] = "0110";
+
+// Page table for prime exec process
+PTBR = PAGE_TABLE_BASE + 60;
+PTLR = 10;
+
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+[PTBR+4] = 92;
+[PTBR+5] = "0110";
+[PTBR+6] = 93;
+[PTBR+7] = "0110";
+
+[PTBR+8] = 91;
+[PTBR+9] = "0100";
+[PTBR+10] = -1;
+[PTBR+11] = "0000";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1;
+[PTBR+15] = "0000";
+
+[PTBR+16] = 94;
+[PTBR+17] = "0110";
+[PTBR+18] = 95;
+[PTBR+19] = "0110";
+
+// Process table for INIT
+[PROCESS_TABLE + 16 + 1] = 1; // PID
+[PROCESS_TABLE + 16 + 4] = CREATED; // State
+[PROCESS_TABLE + 16 + 11] = 80; // User Area Page
+[PROCESS_TABLE + 16 + 12] = 0; // KPTR
+[PROCESS_TABLE + 16 + 13] = 8 * 512; // UPTR
+[PROCESS_TABLE + 16 + 14] = PAGE_TABLE_BASE + 20; // PTBR
+[PROCESS_TABLE + 16 + 15] = 10; // PTLR
+
+// Process table for even exec Process
+[PROCESS_TABLE + 32 + 1] = 2; // PID
+[PROCESS_TABLE + 32 + 4] = CREATED; // State
+[PROCESS_TABLE + 32 + 11] = 90; // User Area Page
+[PROCESS_TABLE + 32 + 12] = 0; // KPTR
+[PROCESS_TABLE + 32 + 13] = 8 * 512; // UPTR
+[PROCESS_TABLE + 32 + 14] = PAGE_TABLE_BASE + 40; // PTBR
+[PROCESS_TABLE + 32 + 15] = 10; // PTLR
+
+// Process table for prime exec Process
+[PROCESS_TABLE + 48 + 1] = 3; // PID
+[PROCESS_TABLE + 48 + 4] = CREATED; // State
+[PROCESS_TABLE + 48 + 11] = 96; // User Area Page
+[PROCESS_TABLE + 48 + 12] = 0; // KPTR
+[PROCESS_TABLE + 48 + 13] = 8 * 512; // UPTR
+[PROCESS_TABLE + 48 + 14] = PAGE_TABLE_BASE + 60; // PTBR
+[PROCESS_TABLE + 48 + 15] = 10; // PTLR
+
+// setting entry point for init process
+// 65 * 512 + 1 is second word of init header block (can be replaced with 2049)
+[76 * 512] = [65 * 512 + 1];
+
+// setting entry point for even exec process
+// 85 * 512 + 1 is second word of exec header block (can be replaced with 2049)
+[88 * 512] = [85 * 512 + 1];
+
+// setting entry point for prime exec process
+// 94 * 512 + 1 is second word of exec header block (can be replaced with 2049)
+[94 * 512] = [91 * 512 + 1];
+
+// replacing all the unused process entry to Terminated state for the scheduling algorithm (RRS)
+alias counter R0;
+counter = 4;
+while (counter <= 15) do
+    [PROCESS_TABLE + 16 * counter + 4] = TERMINATED;
+    counter = counter + 1;
+endwhile;
+
+return;

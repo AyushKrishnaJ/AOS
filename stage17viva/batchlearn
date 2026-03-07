@@ -1,0 +1,18 @@
+load --os $HOME/myexpos/binary/stage17v/finalized_os_startup.xsm
+load --init  $HOME/myexpos/binary/stage17v/init.xsm
+load --library $HOME/myexpos/binary/loadstuff/library.lib
+load --exhandler $HOME/myexpos/binary/loadstuff/haltprog.xsm
+load --int=6 $HOME/myexpos/binary/stage17v/sample_int6.xsm
+load --int=7 $HOME/myexpos/binary/stage17v/sample_int7.xsm
+load --int=9 $HOME/myexpos/binary/stage17v/sample_int9.xsm
+load --int=10 $HOME/myexpos/binary/stage17v/sample_int10.xsm
+load --int=timer $HOME/myexpos/binary/stage17v/sample_timer.xsm
+load --int=console $HOME/myexpos/binary/stage17v/console_interrupt.xsm
+load --idle $HOME/myexpos/binary/stage17v/idle.xsm
+load --module 7 $HOME/myexpos/binary/stage17v/boot_module.xsm
+load --module 5 $HOME/myexpos/binary/stage17v/scheduler_module.xsm
+load --module 0 $HOME/myexpos/binary/stage17v/resource_manager.xsm
+load --module 4 $HOME/myexpos/binary/stage17v/device_manager.xsm
+load --module 1 $HOME/myexpos/binary/stage17v/process_manager.xsm
+load --module 2 $HOME/myexpos/binary/stage17v/memory_manager.xsm
+load --exec $HOME/myexpos/binary/stage17v/odd.xsm

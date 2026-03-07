@@ -1,0 +1,48 @@
+// console interrupt may fire in any process
+// we use the kernel stack of the currently executing process to carry out the console interrupt functionality
+
+// setting UPTR to sp
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+
+// setting stack to kernel stack
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+backup;
+
+// setting up input buffer to the value in port P0
+alias reqPID R0;
+reqPID = [TERMINAL_STATUS_TABLE + 1];
+
+[PROCESS_TABLE + 16 * reqPID + 8] = P0;
+// calling resource manager for release terminal
+multipush(R0);
+
+alias functionNum R1;
+functionNum = RELEASE_TERMINAL;
+R2 = reqPID;
+// call RESOURCE_MANAGER;
+
+if (reqPID != [TERMINAL_STATUS_TABLE + 1]) then
+    R0 = -1;
+
+else
+    [TERMINAL_STATUS_TABLE] = 0;
+    alias iter R3;
+    iter = 0;
+    while (iter != 16) do
+        if ([PROCESS_TABLE + 16 * iter + 4] == WAIT_TERMINAL) then
+            [PROCESS_TABLE + 16 * iter + 4] = READY;
+        endif;
+
+        iter = iter + 1;
+    endwhile;
+    R0 = 0;
+endif;
+
+multipop(R0);
+
+// restore user context and switch back to user stack
+restore;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+
+ireturn;

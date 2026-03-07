@@ -1,0 +1,48 @@
+alias functionNum R1;
+alias currentPID R2;
+alias word R3;
+
+if (functionNum == TERMINAL_WRITE) then
+    // pre req to calling resource module -> Acquire Terminal
+    multipush(R1, R2, R3);
+    functionNum = ACQUIRE_TERMINAL; // function code for Acquire
+    currentPID = [SYSTEM_STATUS_TABLE + 1]; // current PID
+    call RESOURCE_MANAGER;
+    
+    multipop(R1, R2, R3);
+    
+    print word;
+    
+    // pre req to calling resource module -> Release Terminal
+    
+    multipush(R1, R2, R3);
+    functionNum = RELEASE_TERMINAL; // function code for Release
+    currentPID = [SYSTEM_STATUS_TABLE + 1];
+    call RESOURCE_MANAGER;
+    
+    multipop(R1, R2, R3);
+endif;
+
+if (functionNum == TERMINAL_READ) then
+    multipush(R1, R2, R3);
+    functionNum = ACQUIRE_TERMINAL; // function code for Acquire
+    currentPID = [SYSTEM_STATUS_TABLE + 1]; // current PID
+    call RESOURCE_MANAGER;
+    multipop(R1, R2, R3);
+
+    read;
+
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_TERMINAL;
+
+    multipush(R1, R2, R3);
+    call SCHEDULER;
+    multipop(R1, R2, R3);
+
+    // word here is a phy addr containing a logical addr
+    // we have to store the word in input buffer here
+    // so we cal the corresponding physical addr of the logical addr stored in word
+    [[PTBR + 2 * (word / 512)] * 512 + (word % 512)] = [PROCESS_TABLE + 16 * currentPID + 8];
+endif;
+
+// if function num != one of the numbers given above OR when the execution completes return happens
+return;

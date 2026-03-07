@@ -1,0 +1,11 @@
+load --os $HOME/myexpos/binary/stage13/assignment/finalized_os_startup.xsm
+load --init  $HOME/myexpos/binary/stage13/assignment/odd.xsm
+load --library $HOME/myexpos/binary/loadstuff/library.lib
+load --exhandler $HOME/myexpos/binary/loadstuff/haltprog.xsm
+load --int=7 $HOME/myexpos/binary/stage10/sample_int7.xsm
+load --int=10 $HOME/myexpos/binary/stage13/assignment/sample_int10.xsm
+load --int=timer $HOME/myexpos/binary/stage13/assignment/sample_timer.xsm
+load --idle $HOME/myexpos/binary/stage13/assignment/idle.xsm
+load --module 7 $HOME/myexpos/binary/stage13/assignment/boot_module.xsm
+load --module 5 $HOME/myexpos/binary/stage13/assignment/scheduler_module.xsm
+load --exec $HOME/myexpos/binary/stage13/assignment/even.xsm

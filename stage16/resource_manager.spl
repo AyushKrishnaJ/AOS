@@ -1,0 +1,45 @@
+alias functionNum R1;
+alias currentPID R2;
+
+// Acquire Terminal
+if (functionNum == 8) then
+// when terminal is not free
+    while ([TERMINAL_STATUS_TABLE] != 0) do
+        [PROCESS_TABLE + currentPID * 16 + 4] = WAIT_TERMINAL;
+        multipush(R1, R2, R3);
+        call SCHEDULER;
+        multipop(R1, R2, R3);
+    endwhile;
+
+    [TERMINAL_STATUS_TABLE] = 1;
+    [TERMINAL_STATUS_TABLE + 1] = currentPID;
+
+    return;
+endif;
+
+// Release Terminal
+if (functionNum == 9) then
+// if process is trying to release without acquiring it
+    if (currentPID != [TERMINAL_STATUS_TABLE + 1]) then
+        R0 = -1;
+        return;
+
+    else
+        [TERMINAL_STATUS_TABLE] = 0;
+        alias iter R3;
+        iter = 0;
+        while (iter != 16) do
+            if ([PROCESS_TABLE + 16 * iter + 4] == WAIT_TERMINAL) then
+                [PROCESS_TABLE + 16 * iter + 4] = READY;
+            endif;
+
+            iter = iter + 1;
+        endwhile;
+        R0 = 0;
+        return;
+    endif;
+endif;
+
+// if code reaches here then func val != 8 || 9
+R0 = -1;
+return;

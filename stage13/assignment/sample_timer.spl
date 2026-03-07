@@ -1,0 +1,32 @@
+// saving user stack pointer in process table
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+
+// sets stack pointer to user area page number * 512 - 1 which is kernel stack
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+// stores all register value in kernel stack
+backup;
+
+// store currently executing process' pid in currentPID
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+// store currently executing process table in process_table_entry
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+
+// change state of current Process to READY
+[process_table_entry + 4] = READY;
+
+// invoke context switch
+call MOD_5;
+
+// restoring register context
+restore;
+
+// setting SP to userSP
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+[PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 12] = 0;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+
+ireturn;

@@ -1,0 +1,23 @@
+decl
+    int n, i, arr[100];
+enddecl
+
+int main () {
+    begin
+        n = 5;
+        i = 0;
+        while (i < n) do
+            read(arr[i]);
+            i = i + 1;
+        endwhile;
+
+
+        i = 0;
+        while (i < n) do
+            write(arr[i]);
+            i = i + 1;
+        endwhile;
+
+        return 0;
+    end
+}

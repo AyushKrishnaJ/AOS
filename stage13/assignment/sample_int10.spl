@@ -1,0 +1,21 @@
+// change state of invoking process to Terminated
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+
+[process_table_entry + 4] = TERMINATED;
+
+alias iter R2;
+iter = 1;
+
+while (iter < 16) do
+    if ([PROCESS_TABLE + 16 * iter + 4] != TERMINATED) then 
+        call MOD_5;
+    endif;
+
+    iter = iter + 1;
+endwhile;
+
+halt;

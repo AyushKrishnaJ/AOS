@@ -1,0 +1,19 @@
+int main () {
+    decl
+        int a;
+    enddecl
+
+    begin
+        breakpoint;
+        a = 1;
+        while (a <= 100) do
+            if ((a % 2) != 0) then
+                write(a);
+            endif;
+            a = a + 1;
+        endwhile;
+        return 0;
+    end
+
+}
+

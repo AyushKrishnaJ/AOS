@@ -1,0 +1,46 @@
+// setting MODE flag to syscall number
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 7;
+ 
+alias userSP R0;
+userSP = SP;
+
+// setting SP in UPTR
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = userSP;
+
+// setting kernel stack 
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+alias physicalPageNum R1;
+alias offset R2;
+alias fileDesc R3;
+
+// calculating file descriptor value
+// doing all this since address translation is turned off
+offset = (userSP - 4) % 512;
+physicalPageNum = [PTBR + 2 * ((userSP - 4) / 512)];
+fileDesc = [physicalPageNum * 512 + offset];
+
+// if the file descriptor is not -1 then we store -1 in return address
+alias physicalAddrRetVal R4;
+physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+if (fileDesc != -1) then
+    [physicalAddrRetVal] = -1;
+else
+    alias word R5;
+    word = ([PTBR + 2 * ((userSP - 3) / 512)] * 512) + ((userSP - 3) % 512);
+	// push all the registers we used 
+	multipush(R0, R1, R2, R3, R4, R5);
+	// setting arguements for terminal write
+	R1 = 4; //function code
+	R2 = [SYSTEM_STATUS_TABLE + 1]; // currentPID
+	R3 = [word]; // address of word where the input will be taken
+	call DEVICE_MANAGER;
+
+    multipop(R0, R1, R2, R3, R4, R5);
+
+    [physicalAddrRetVal] = 0;
+endif;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = userSP;
+ireturn;
