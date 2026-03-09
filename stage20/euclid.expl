@@ -1,0 +1,32 @@
+decl
+    int Euclid(int a, int b);
+enddecl
+
+int Euclid(int a, int b) {
+    decl    
+        int temp;
+    enddecl
+    begin
+        if (a == 0) then
+            temp = b;
+        else
+            temp = Euclid(b % a, a);
+        endif;
+
+        return temp;
+    end
+}
+
+int main () {
+    decl
+        int a, b, ret;
+    enddecl
+    begin
+        read(a);
+        read(b);
+        ret = Euclid(a, b);
+        write(ret);
+
+        return 0;
+    end
+}
