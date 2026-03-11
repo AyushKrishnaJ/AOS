@@ -1,5 +1,27 @@
 alias functionNum R1;
 alias processPID R2;
+
+// no arguements, return is index of free pcb
+if (functionNum == GET_PCB_ENTRY) then
+    alias retVal R0;
+    alias iter R3;
+    iter = 0;
+    while (iter < 16) do
+    // if we find a process we return index, change state to allocated, set ptbr and ptlr
+        if ([PROCESS_TABLE + iter * 16 + 4] == TERMINATED) then
+            retVal = iter;
+            [PROCESS_TABLE + iter * 16 + 4] = ALLOCATED; [PROCESS_TABLE + iter * 16 + 14] = PAGE_TABLE_BASE + iter * 20;
+            [PROCESS_TABLE + iter * 16 + 15] = 10;
+            return;     
+        endif; 
+        iter = iter + 1;
+    endwhile;
+
+    // if we cant find a pcb index then we return -1
+    retVal = -1;
+    return;    
+endif;
+
 // process to exit will have pid
 // remove the page corresponding to user area page by calling the release page function in memory manager
 if (functionNum == FREE_USER_AREA_PAGE) then
