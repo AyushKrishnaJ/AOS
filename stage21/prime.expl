@@ -1,0 +1,29 @@
+int main () {
+    decl
+        int num;
+        int iter;
+        int flag;
+    enddecl
+    begin
+        num = 2;
+        while (num <= 100) do
+            iter = 2;
+            flag = 1;
+            while (iter < num) do
+                if ((num % iter) == 0) then
+                    flag = 0;
+                    break;
+                endif;
+                iter = iter + 1;
+            endwhile;
+
+            if (flag != 0) then
+                write(num);
+            endif;
+
+            num = num + 1;
+        endwhile;
+
+        return 0;
+    end
+}
