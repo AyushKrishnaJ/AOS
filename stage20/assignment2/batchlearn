@@ -1,0 +1,19 @@
+load --os $HOME/myexpos/binary/stage20/finalized_os_startup.xsm
+load --init  $HOME/myexpos/binary/stage20/assignment2/init.xsm
+load --idle $HOME/myexpos/binary/stage20/idle.xsm
+load --library $HOME/myexpos/binary/loadstuff/library.lib
+load --int=6 $HOME/myexpos/binary/stage20/sample_int6.xsm
+load --int=7 $HOME/myexpos/binary/stage20/sample_int7.xsm
+load --int=8 $HOME/myexpos/binary/stage20/sample_int8.xsm
+load --int=9 $HOME/myexpos/binary/stage20/sample_int9.xsm
+load --int=10 $HOME/myexpos/binary/stage20/sample_int10.xsm
+load --exhandler $HOME/myexpos/binary/stage20/exhandler.xsm
+load --int=timer $HOME/myexpos/binary/stage20/sample_timer.xsm
+load --int=disk $HOME/myexpos/binary/stage20/disk_interrupt.xsm
+load --int=console $HOME/myexpos/binary/stage20/console_interrupt.xsm
+load --module 0 $HOME/myexpos/binary/stage20/resource_manager.xsm
+load --module 1 $HOME/myexpos/binary/stage20/process_manager.xsm
+load --module 2 $HOME/myexpos/binary/stage20/memory_manager.xsm
+load --module 4 $HOME/myexpos/binary/stage20/device_manager.xsm
+load --module 5 $HOME/myexpos/binary/stage20/scheduler_module.xsm
+load --module 7 $HOME/myexpos/binary/stage20/boot_module.xsm
