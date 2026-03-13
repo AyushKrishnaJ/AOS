@@ -39,7 +39,7 @@ endif;
 // exit process is an abstraction which is just used to call free_user_area_page and free_page_table
 if (functionNum == EXIT_PROCESS) then
     // if its not exec syscall then we have to set waiting process to ready
-    if ([PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] != 8) then
+    if ([PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] != 9) then
         alias iter R3;
         iter = 0;
 

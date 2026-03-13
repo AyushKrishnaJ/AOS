@@ -60,6 +60,7 @@ multipop(R0, R1, R2, R3);
 
 // step 5 : initalizing process table for child process 
 // entries which are same for both child and parent process
+[PROCESS_TABLE + PCBindex * 16 + 1] = PCBindex;
 [PROCESS_TABLE + PCBindex * 16 + 3] = [currProcessTable + 3]; // user id of user will be same for both child and parent process 
 [PROCESS_TABLE + PCBindex * 16 + 6] = [currProcessTable + 6]; // swap flag will be same 
 [PROCESS_TABLE + PCBindex * 16 + 7] = [currProcessTable + 7]; // inode index will be same  

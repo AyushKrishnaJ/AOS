@@ -21,3 +21,4 @@ load --module 5 $HOME/myexpos/binary/stage21/scheduler_module.xsm
 load --module 7 $HOME/myexpos/binary/stage21/boot_module.xsm
 load --exec $HOME/myexpos/binary/stage21/assignment1/odd.xsm
 load --exec $HOME/myexpos/binary/stage21/assignment1/even.xsm
+load --exec $HOME/myexpos/binary/stage21/assignment1/test.xsm
