@@ -1,5 +1,5 @@
 load --os $HOME/myexpos/binary/stage22/finalized_os_startup.xsm
-load --init  $HOME/myexpos/binary/stage22/assignment2/init.xsm
+load --init  $HOME/myexpos/binary/stage22/assignment3/init.xsm
 load --idle $HOME/myexpos/binary/stage22/idle.xsm
 load --library $HOME/myexpos/binary/loadstuff/library.lib
 load --int=6 $HOME/myexpos/binary/stage22/int6_read.xsm
@@ -21,7 +21,5 @@ load --module 2 $HOME/myexpos/binary/stage22/memory_manager.xsm
 load --module 4 $HOME/myexpos/binary/stage22/device_manager.xsm
 load --module 5 $HOME/myexpos/binary/stage22/scheduler_module.xsm
 load --module 7 $HOME/myexpos/binary/stage22/boot_module.xsm
-load --exec $HOME/myexpos/binary/stage22/assignment2/pid.xsm
-load --exec $HOME/myexpos/binary/stage22/assignment2/fork.xsm
-load --exec $HOME/myexpos/binary/stage22/assignment2/parent.xsm
-load --exec $HOME/myexpos/binary/stage22/assignment2/child.xsm
+load --exec $HOME/myexpos/binary/stage22/assignment3/mconc.xsm
+load --exec $HOME/myexpos/binary/stage22/assignment3/mseq.xsm

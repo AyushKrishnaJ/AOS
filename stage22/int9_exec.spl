@@ -153,5 +153,4 @@ SP = 8 * 512;
 
 alias currProcessTable R0;
 [currProcessTable + 9] = 0;
-breakpoint;
 ireturn;

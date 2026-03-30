@@ -14,7 +14,7 @@ if (EC != 0 || [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] == PTLR * 5
 
     if ([PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] == PTLR * 512 - 1 && EC == 0) then
         error = "Stack Full";
-
+[SYSTEM_STATUS_TABLE]
     else
         if (EC == 1) then
             error = "Ill Instr";

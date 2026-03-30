@@ -25,6 +25,20 @@ endif;
 // process to exit will have pid
 // remove the page corresponding to user area page by calling the release page function in memory manager
 if (functionNum == FREE_USER_AREA_PAGE) then
+    alias iter R4;
+    iter = 0;
+    while (iter < 8) do
+        if([[PROCESS_TABLE + processPID * 16 + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2] == SEMAPHORE) then
+            multipush(R0, R1, R2, R3, R4);
+            R1 = RELEASE_SEMAPHORE;
+            R2 = [[PROCESS_TABLE + processPID * 16 + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2 + 1];
+            R3 = processPID;
+            multipop(R0, R1, R2, R3, R4);
+        endif;        
+
+        iter = iter + 1; 
+    endwhile;
+
     alias pageToRelease R3;
     pageToRelease = [PROCESS_TABLE + processPID * 16 + 11];
     multipush(R1, R2, R3);
@@ -71,6 +85,7 @@ endif;
 
 if (functionNum == FREE_PAGE_TABLE) then
     alias pageTableEntry R3;
+    breakpoint;
     pageTableEntry = [PROCESS_TABLE + processPID * 16 + 14];
 
     // invalidate library pages

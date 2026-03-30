@@ -77,13 +77,24 @@ multipop(R0, R1, R2, R3);
 [PROCESS_TABLE + PCBindex * 16 + 4] = CREATED; // state of child will be created
 
 // per process resource table for later
+alias iter R4;
+iter = 0;
+while (iter < 8) do
+    [[PROCESS_TABLE + PCBindex * 16 + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2] = [[currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2];
+    [[PROCESS_TABLE + PCBindex * 16 + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2 + 1] = [[currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2 + 1];
+
+    if ([[currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2] == SEMAPHORE) then
+        [SEMAPHORE_TABLE + [[currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2 + 1] * 4 + 1] = [SEMAPHORE_TABLE + [[currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2 + 1] * 4 + 1] + 1; 
+    endif;
+
+    iter = iter + 1;
+endwhile;
 
 // Step 7 : coping disk map table of parent process for child process
-alias iter R4;
 iter = 0;
 
 while (iter < 10) do
-    [DISK_MAP_TABLE + PCBindex * 10 + iter] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] + iter];
+    [DISK_MAP_TABLE + PCBindex * 10 + iter] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + iter];
     iter = iter + 1;
 endwhile;
 
