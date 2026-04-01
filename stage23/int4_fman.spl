@@ -1,0 +1,220 @@
+alias userSP R0;
+alias syscallNum R1;
+alias retAddr R2;
+alias currProcessTable R3;
+alias iter R4;
+alias fileName R5;
+alias perms R6;
+
+userSP = SP;
+currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+
+// step 1 : extract syscall number, address where ret val has to go to, file name, perms (for create)
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512 + (userSP - 1) % 512;
+perms = [[PTBR + (userSP - 3) / 512 * 2] * 512 + (userSP - 3) % 512];
+fileName = [[PTBR + (userSP - 4) / 512 * 2] * 512 + (userSP - 4) % 512];
+syscallNum = [[PTBR + (userSP - 5) / 512 * 2] * 512 + (userSP - 5) % 512];
+
+// step 2 : switch to kernel stack
+[currProcessTable + 13] = userSP;
+SP = [currProcessTable + 11] * 512 - 1;
+
+// step 3 : set mode flag
+[currProcessTable + 9] = syscallNum;
+
+// create : arguements(filename, perms(0 - exclusive, 1 - open access))
+// return 0: success / file already exists
+// return -1: no free inode table entry
+if (syscallNum == INT_CREATE) then
+    // check if file already exists in inode table
+    iter = 0;
+    
+    alias freeEntry R7;
+    freeEntry = -1;
+
+    while (iter < MAX_FILE_NUM) do
+        if ([INODE_TABLE + iter * 16 + 1] == fileName) then
+            [retAddr] = 0; // file already exists
+
+            // [currProcessTable + 9] = 0;
+            // SP = [currProcessTable + 13];
+            // ireturn;
+            goto END;
+        endif;
+        
+        if (freeEntry == -1 && [INODE_TABLE + iter * 16 + 1] == -1) then
+            freeEntry = iter;
+        endif;
+
+        iter = iter + 1;
+    endwhile;
+
+    if (freeEntry == -1) then
+        [retAddr] = -1; // no free entry in inode table
+
+        // [currProcessTable + 9] = 0;
+        // SP = [currProcessTable + 13];
+        // ireturn;
+        goto END;
+    endif;
+
+    // setup metadata of the free inode entry
+    [INODE_TABLE + freeEntry * 16 + 0] = DATA;
+    [INODE_TABLE + freeEntry * 16 + 1] = fileName;
+    [INODE_TABLE + freeEntry * 16 + 2] = 0;
+    // data block field as -1
+    [INODE_TABLE + freeEntry * 16 + 8] = -1;
+    [INODE_TABLE + freeEntry * 16 + 9] = -1;
+    [INODE_TABLE + freeEntry * 16 + 10] = -1;
+    [INODE_TABLE + freeEntry * 16 + 11] = -1;
+    // set user id to user id of process
+    [INODE_TABLE + freeEntry * 16 + 3] = [currProcessTable + 3];
+    // set perms as the perms given as arguements
+    [INODE_TABLE + freeEntry * 16 + 4] = perms;
+
+    // setup file name, size, type, username, perms field in rootfile
+    [ROOT_FILE + freeEntry * 8 + 0] = fileName;
+    [ROOT_FILE + freeEntry * 8 + 1] = 0;
+    [ROOT_FILE + freeEntry * 8 + 2] = DATA;
+    [ROOT_FILE + freeEntry * 8 + 3] = [USER_TABLE + [currProcessTable + 3] * 2 + 0];
+    [ROOT_FILE + freeEntry * 8 + 4] = perms;
+
+    // return with 0 indicating success
+    [retAddr] = 0;
+endif;
+
+// delete : arguements (filename)
+// return 0: sucess / file does not exist
+// return -1: permission denied (using perms field)
+// return -2: file is open
+if (syscallNum == INT_DELETE) then
+    // check if file exists in inode table
+    iter = 0;
+    
+    alias fileIndex R7;
+    fileIndex = -1;
+
+    while (iter < MAX_FILE_NUM) do
+        if ([INODE_TABLE + iter * 16 + 1] == fileName) then
+            fileIndex = iter;
+            break;
+        endif;
+
+        iter = iter + 1;
+    endwhile;
+
+    // file does not exist case:
+    if (fileIndex == -1) then
+        [retAddr] = 0; // file already done not exist
+
+        // [currProcessTable + 9] = 0;
+        // SP = [currProcessTable + 13];
+        // ireturn;
+        goto END;
+    endif;
+
+    // file exists, but is not a data file case:
+    if ([INODE_TABLE + fileIndex * 16 + 0] != DATA) then
+        [retAddr] = -1; // file is not a DATA file
+
+        // [currProcessTable + 9] = 0;
+        // SP = [currProcessTable + 13];
+        // ireturn;  
+        goto END;     
+    endif;
+
+    // if file is in exclusive perms and if the current user is not root or if the file to be deleted is not owned by the same user who is deleting it
+    // this case only exists if file is in exclusive perms
+    if ([INODE_TABLE + fileIndex * 16 + 4] == EXCLUSIVE) then
+        if ([SYSTEM_STATUS_TABLE + 0] != ROOT && [INODE_TABLE + fileIndex * 16 + 3] != [currProcessTable + 3]) then
+            [retAddr] = -1;
+
+            // [currProcessTable + 9] = 0;
+            // SP = [currProcessTable + 13];
+            // ireturn; 
+            goto END;      
+        endif;
+    endif;
+
+    // now all checks are done, we can proceed to deleting the file
+    // file lock the file by calling acquire inode
+    multipush(R0, R1, R2, R3, R4, R5, R6, R7);
+    R1 = ACQUIRE_INODE; // function Num
+    R2 = fileIndex; // arg1 : Inode Index
+    R3 = [SYSTEM_STATUS_TABLE + 1]; // arg2 : Pid
+
+    call RESOURCE_MANAGER;
+    multipop(R0, R1, R2, R3, R4, R5, R6, R7);
+
+    // check if the file is opened by any other files, if so return with -2
+    if ([FILE_STATUS_TABLE + fileIndex * 4 + 1] != -1) then
+        multipush(R0, R1, R2, R3, R4, R5, R6, R7);
+        R1 = RELEASE_INODE; // function Num
+        R2 = fileIndex; // arg1 : Inode Index
+        R3 = [SYSTEM_STATUS_TABLE + 1]; // arg2 : Pid
+
+        call RESOURCE_MANAGER;
+        multipop(R0, R1, R2, R3, R4, R5, R6, R7);
+
+        [retAddr] = -2; // file is open
+
+        // [currProcessTable + 9] = 0;
+        // SP = [currProcessTable + 13];
+        // ireturn;  
+        goto END;
+    endif;
+
+    // for each disk block allocated to this file,
+    // if block is loaded into buffer and dirty bit is set, 
+    // reset dirty bit and free the block
+    // buffer table : block number % 4 will be the place where the block will be placed in buffer table
+    alias blockNum R8;
+    iter = 8; // 8, 9, 10, 11 is where data block is stored in inode table
+    while (iter < 12) do
+        blockNum = [INODE_TABLE + fileIndex * 16 + iter];
+        if (blockNum != -1) then
+            if ([BUFFER_TABLE + (blockNum % 4) * 4 + 0] == blockNum && [BUFFER_TABLE + (blockNum % 4) * 4 + 1] == 1) then
+                [BUFFER_TABLE + (blockNum % 4) * 4 + 1] = 0;
+            endif;
+
+            multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8);
+            R1 = RELEASE_BLOCK; // function Num
+            R2 = blockNum; // arg1 : block number
+            R3 = [SYSTEM_STATUS_TABLE + 1]; // arg2 : pid
+            call MEMORY_MANAGER;
+            multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8);
+        endif;
+
+        iter = iter + 1;
+    endwhile;
+
+    // invalidate inode table of file
+    iter = 0;
+    while (iter < 16) do
+        [INODE_TABLE + fileIndex * 16 + iter] = -1;        
+        iter = iter + 1;
+    endwhile;
+
+    // invalidate root table of file
+    iter = 0;
+    while (iter < 8) do
+        [ROOT_FILE + fileIndex * 8 + iter] = -1;        
+        iter = iter + 1;
+    endwhile;
+  
+    multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8);
+    R1 = RELEASE_INODE; // function Num
+    R2 = fileIndex; // arg1 : Inode Index
+    R3 = [SYSTEM_STATUS_TABLE + 1]; // arg2 : Pid
+
+    call RESOURCE_MANAGER;
+    multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8);
+
+    [retAddr] = 0;
+endif;
+
+// step : return add setting mode flag to 0 and switching to user stack
+END:
+[currProcessTable + 9] = 0;
+SP = [currProcessTable + 13];
+ireturn;

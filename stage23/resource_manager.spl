@@ -1,0 +1,157 @@
+alias functionNum R1;
+alias arg1 R2;
+alias arg2 R3;
+
+// arg1 = PID
+if (functionNum == ACQUIRE_DISK) then
+    // step 1 : busy wait loop (if status field in disk status is 1)
+    while ([DISK_STATUS_TABLE + 0] == 1) do
+        [PROCESS_TABLE + arg1 * 16 + 4] = WAIT_DISK;
+        multipush(R1, R2);
+
+        call SCHEDULER;
+        multipop(R1, R2);        
+    endwhile;
+
+    // step 2 : lock the disk by setting status field to 1 and corresponding pid
+    [DISK_STATUS_TABLE + 0] = 1; // locking disk
+    [DISK_STATUS_TABLE + 4] = arg1; // pid of the process acquiring the disk
+
+    return;
+endif;
+
+// arg1 = inode index, arg2 = pid
+if (functionNum == ACQUIRE_INODE) then
+    while ([FILE_STATUS_TABLE + arg1 * 4 + 0] != -1) do
+        [PROCESS_TABLE + arg2 * 16 + 4] = WAIT_FILE;
+        [PROCESS_TABLE + arg2 * 16 + 5] = arg1;
+        // if inode is locked, set state to wait file, index of inode.
+
+        multipush(R0, R1, R2, R3);
+        call SCHEDULER;
+        multipop(R0, R1, R2, R3);
+    endwhile;
+
+    if ([INODE_TABLE + arg1 * 16 + 1] == -1) then
+        R0 = -1;
+        return;
+    endif;
+
+    [FILE_STATUS_TABLE + arg1 * 4 + 0] = arg2;
+    R0 = 0;
+    return;
+endif;
+
+// arg1 = inode index, arg2 = pid
+if (functionNum == RELEASE_INODE) then
+    // if release inode is not called by someone who locked the inode then return -1
+    if (arg2 != [FILE_STATUS_TABLE + arg1 * 4 + 0]) then
+        R0 = -1;
+        return;
+    endif;
+
+    // unlock the inode
+    [FILE_STATUS_TABLE + arg1 * 4 + 0] = -1;
+
+    alias iter R4;
+    iter = 0;
+
+    while (iter < 16) do
+        if ([PROCESS_TABLE + iter * 16 + 4] == WAIT_FILE && [PROCESS_TABLE + iter * 16 + 5] == arg1) then
+            [PROCESS_TABLE + iter * 16 + 4] = READY;
+            [PROCESS_TABLE + iter * 16 + 5] = -1;
+        endif;
+
+        iter = iter + 1;
+    endwhile;
+
+    R0 = 0;
+    return;
+endif;
+
+// arg1 = PID
+if (functionNum == ACQUIRE_SEMAPHORE) then
+    alias iter R3;
+    iter = 0;
+
+    while (iter < MAX_SEM_COUNT) do
+        if ([SEMAPHORE_TABLE + iter * 4 + 1] == 0) then
+            [SEMAPHORE_TABLE + iter * 4 + 1] = 1;
+            [SEMAPHORE_TABLE + iter * 4 + 0] = -1;
+
+            R0 = iter;
+            return; 
+        endif;
+
+        iter = iter + 1;
+    endwhile;
+
+    R0 = -1;
+    return;
+endif;
+
+// arg1 = semID
+// arg2 = PID
+if (functionNum == RELEASE_SEMAPHORE) then
+    if ([SEMAPHORE_TABLE + arg1 * 4 + 0] == arg2) then
+        [SEMAPHORE_TABLE + arg1 * 4 + 0] = -1;
+
+        alias iter R4;
+        iter = 0;
+
+        while (iter < MAX_PROC_NUM) do
+            if ([PROCESS_TABLE + iter * 16 + 4] == WAIT_SEMAPHORE && [PROCESS_TABLE + iter * 16 + 5] == arg1) then
+                [PROCESS_TABLE + iter * 15 + 4] = READY;
+                [PROCESS_TABLE + iter * 15 + 5] = -1;
+            endif;
+
+            iter = iter + 1;
+        endwhile;
+
+        [SEMAPHORE_TABLE + arg1 * 4 + 1] = [SEMAPHORE_TABLE + arg1 * 4 + 1] - 1;
+    endif;
+    return;
+endif;
+
+// arg1 = PID
+if (functionNum == ACQUIRE_TERMINAL) then
+// when terminal is not free
+    while ([TERMINAL_STATUS_TABLE + 0] != 0) do
+        [PROCESS_TABLE + arg1 * 16 + 4] = WAIT_TERMINAL;
+        multipush(R1, R2, R3);
+        call SCHEDULER;
+        multipop(R1, R2, R3);
+    endwhile;
+
+    [TERMINAL_STATUS_TABLE] = 1;
+    [TERMINAL_STATUS_TABLE + 1] = arg1;
+
+    return;
+endif;
+
+// arg1 = PID
+if (functionNum == RELEASE_TERMINAL) then
+// if process is trying to release without acquiring it
+    if (arg1 != [TERMINAL_STATUS_TABLE + 1]) then
+        R0 = -1;
+        return;
+
+    else
+        [TERMINAL_STATUS_TABLE] = 0;
+        alias iter R3;
+        iter = 0;
+        while (iter != 16) do
+            if ([PROCESS_TABLE + 16 * iter + 4] == WAIT_TERMINAL) then
+                [PROCESS_TABLE + 16 * iter + 4] = READY;
+            endif;
+
+            iter = iter + 1;
+        endwhile;
+        R0 = 0;
+        return;
+    endif;
+endif;
+
+// if code reaches here then func val != 8 || 9
+R0 = -1;
+return;

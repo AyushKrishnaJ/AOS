@@ -1,0 +1,29 @@
+load --os $HOME/myexpos/binary/stage23/finalized_os_startup.xsm
+load --init  $HOME/myexpos/binary/stage23/assignment2/init.xsm
+load --idle $HOME/myexpos/binary/stage23/idle.xsm
+load --library $HOME/myexpos/binary/loadstuff/library.lib
+load --int=4 $HOME/myexpos/binary/stage23/int4_fman.xsm
+load --int=6 $HOME/myexpos/binary/stage23/int6_read.xsm
+load --int=7 $HOME/myexpos/binary/stage23/int7_write.xsm
+load --int=8 $HOME/myexpos/binary/stage23/int8_fork.xsm
+load --int=9 $HOME/myexpos/binary/stage23/int9_exec.xsm
+load --int=10 $HOME/myexpos/binary/stage23/int10_exit.xsm
+load --int=11 $HOME/myexpos/binary/stage23/int11_sync.xsm
+load --int=13 $HOME/myexpos/binary/stage23/int13_sema.xsm
+load --int=14 $HOME/myexpos/binary/stage23/int14_lock.xsm
+load --int=15 $HOME/myexpos/binary/stage23/int15_shutdown.xsm
+load --exhandler $HOME/myexpos/binary/stage23/exhandler.xsm
+load --int=timer $HOME/myexpos/binary/stage23/timer_interrupt.xsm
+load --int=disk $HOME/myexpos/binary/stage23/disk_interrupt.xsm
+load --int=console $HOME/myexpos/binary/stage23/console_interrupt.xsm
+load --module 0 $HOME/myexpos/binary/stage23/resource_manager.xsm
+load --module 1 $HOME/myexpos/binary/stage23/process_manager.xsm
+load --module 2 $HOME/myexpos/binary/stage23/memory_manager.xsm
+load --module 4 $HOME/myexpos/binary/stage23/device_manager.xsm
+load --module 5 $HOME/myexpos/binary/stage23/scheduler_module.xsm
+load --module 7 $HOME/myexpos/binary/stage23/boot_module.xsm
+load --exec $HOME/myexpos/binary/stage23/assignment2/pid.xsm
+load --exec $HOME/myexpos/binary/stage23/assignment2/fork.xsm
+load --exec $HOME/myexpos/binary/stage23/assignment2/parent.xsm
+load --exec $HOME/myexpos/binary/stage23/assignment2/child.xsm
+load --exec $HOME/myexpos/binary/stage23/assignment2/delete.xsm
