@@ -1,0 +1,34 @@
+// change state of invoking process to Terminated
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+
+// change mode flag to 10
+[process_table_entry + 9] = 10;
+
+// switch to kernel stack
+[process_table_entry + 13] = SP;
+SP = [process_table_entry + 11] * 512 - 1;
+
+multipush(R0, R1);
+R1 = EXIT_PROCESS; // function Number
+R2 = currentPID; // Arg 1 - PID
+call PROCESS_MANAGER;
+// no return value
+multipop(R0, R1);
+
+alias iter R2;
+iter = 1;
+
+while (iter < 16) do
+    if ([PROCESS_TABLE + 16 * iter + 4] != TERMINATED) then 
+        call SCHEDULER;
+    endif;
+
+    iter = iter + 1;
+endwhile;
+
+halt;
+
