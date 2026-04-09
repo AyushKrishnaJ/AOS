@@ -172,8 +172,8 @@ if (functionNum == KILL_ALL) then
         if ([INODE_TABLE + 16 * iter + 1] != -1) then
             multipush(R1, R2, R5);
             R1 = ACQUIRE_INODE;
-            R2 = iter;
             R3 = processPID;
+            R2 = iter;
             call RESOURCE_MANAGER;
             multipop(R1, R2, R5);
         endif;
@@ -182,7 +182,7 @@ if (functionNum == KILL_ALL) then
 
     // kill all processes except idle (0), init (1), and current process
     iter = 2;
-    while (iter < MAX_PROC_NUM - 1) do
+    while (iter < MAX_PROC_NUM) do
         if ([PROCESS_TABLE + 16 * iter + 1] != processPID && [PROCESS_TABLE + 16 * iter + 4] != TERMINATED) then
             multipush(R1, R2, R5);
             functionNum = EXIT_PROCESS;
@@ -199,8 +199,8 @@ if (functionNum == KILL_ALL) then
         if ([INODE_TABLE + 16 * iter + 1] != -1) then
             multipush(R1, R2, R5);
             R1 = RELEASE_INODE;
-            R2 = iter;
             R3 = processPID;
+            R2 = iter;
             call RESOURCE_MANAGER;
             multipop(R1, R2, R5);
         endif;

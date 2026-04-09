@@ -1,208 +1,158 @@
-alias userSP R0;
-alias syscallNum R1;
+// c is the process table entry
+alias c R0;
+alias userSP R1;
 alias retAddr R2;
-alias currProcessTable R3;
+alias syscallnum R3; 
 alias iter R4;
+alias END R15;
 
 userSP = SP;
-currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+c = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512  + (userSP - 1) % 512;
+syscallnum = [[PTBR + (userSP - 5) / 512 * 2] * 512  + (userSP - 5) % 512];
 
-// step 1 : extract syscall number, address where ret val has to go to
-retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512 + (userSP - 1) % 512;
-syscallNum = [[PTBR + (userSP - 5) / 512 * 2] * 512 + (userSP - 5) % 512];
+[c + 9] = syscallnum;
+[c + 13] = SP;
+SP = [c + 11] * 512 - 1;
 
-// step 2 : switch to kernel stack
-[currProcessTable + 13] = userSP;
-SP = [currProcessTable + 11] * 512 - 1;
-
-// step 3 : set mode flag
-[currProcessTable + 9] = syscallNum;
-
-// open : arguements(filename)
-// return file descriptor : for sucess
-// return -1 : file not found / file is not data or root
-// return -2 : system has reached limit of open files
-// return -3 : process has reached limit of resources
-if (syscallNum == INT_OPEN) then
-    // alias i used : 
-    // R5 -> fileName (stores fileName from arguements)
-    // R6 -> RTStart (basically an offset to current processes resource table)
-    // R7 -> RTentry (index of the resource table which can be allocated) (also called as fileDescriptor)
-    // R8 -> ofTableEntry (index of open file table which can be allocated)
-
-    alias fileName R5;
-    alias RTStart R6;
-
-    fileName = [[PTBR + (userSP - 4) / 512 * 2] * 512 + (userSP - 4) % 512];
-    RTStart = [currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET;
-
-    // find a free resource table entry
+if (syscallnum == INT_OPEN) then
     iter = 0;
+    alias resourceEntry R5;
+    resourceEntry = -1;
     while (iter < 8) do
-        if ([RTStart + iter * 2 + 0] == -1) then
+        if ([[c + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2] == -1) then
+            resourceEntry = iter;
             break;
-        endif;    
-
-        iter = iter + 1;    
+        endif;
+        iter = iter + 1;
     endwhile;
 
-    alias RTentry R7;
-    RTentry = iter;
-
-    // process has max no of resources allocated already
-    if (iter == 8) then
+    if (resourceEntry == -1) then
         [retAddr] = -3;
-        goto END;
-    endif;
+        [c+9] = 0;
+        SP = [c + 13];
+        ireturn;
+    endif; 
 
-    alias ofTableEntry R8;
-    // call open function in file manager module
-    multipush(R0, R1, R2, R3, R4, R5, R6, R7);
-    R1 = OPEN; // function Num
-    R2 = fileName; // arg1 (file name)
-    call FILE_MANAGER;
-
-    ofTableEntry = R0; // return val of open fn will be in R0
-    multipop(R0, R1, R2, R3, R4, R5, R6, R7);
-
-    // open function failed either due to file not exist or table is full (open file table max size = 32)
-    if (ofTableEntry < 0) then
-        [retAddr] = ofTableEntry;
-        goto END;
-    endif;
+    alias fileName R6;
+    alias fileTableIndex R7;
+    fileName = [[PTBR + (userSP - 4) / 512 * 2] * 512  + (userSP - 4) % 512];
     
-    // now we have a resource table entry (RTentry) and open file table entry (ofTableEntry)
+    multipush(R0, R1, R2, R3, R4, R5, R6);
+    R1 = OPEN;
+    R2 = fileName;
+    call FILE_MANAGER;
+    fileTableIndex = R0;
+    multipop(R0, R1, R2, R3, R4, R5, R6);
 
-    // setup Resource table
-    [RTStart + RTentry * 2 + 0] = FILE;
-    [RTStart + RTentry * 2 + 1] = ofTableEntry;
+    if (fileTableIndex < 0) then
+        [retAddr] = fileTableIndex;
+        [c+9] = 0;
+        SP = [c + 13];
+        ireturn;
+    endif;
 
-    [retAddr] = RTentry; // return resource table entry (file descriptor)
+    [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + resourceEntry * 2] = FILE;
+    [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + resourceEntry * 2 + 1] = fileTableIndex;
+    [retAddr] = resourceEntry;
+    
+    [c+9] = 0;
+    SP = [c + 13];
+    ireturn;
 endif;
 
-// close : arguements(file descriptor)
-// return 0 : for sucess
-// return -1 : file descriptor is invalid
-// seek : arguements(file descriptor, offset)
-// return 0 : for sucess
-// return -1 : file descriptor is invalid
-// return -2 : offset value moves file pointer to position outside the file
-if (syscallNum == INT_CLOSE || syscallNum == INT_SEEK) then
-    // alias i used : 
-    // R5 -> RTentry (resource table index for the file (arg1))
-    // R6 -> RTStart (basically an offset to current process' resource table)
-    // R7 -> ofTableEntry (index of open file table which can be allocated)
-    breakpoint;
-    print "closeseek";
-    alias RTentry R5;
-    alias RTStart R6;
+if (syscallnum == INT_CLOSE || syscallnum == INT_SEEK) then
+    alias fd R5;
+    fd = [[PTBR + (userSP - 4) / 512 * 2] * 512  + (userSP - 4) % 512];
 
-    RTentry = [[PTBR + (userSP - 4) / 512 * 2] * 512 + (userSP - 4) % 512];
-    RTStart = [currProcessTable + 11] * 512 + RESOURCE_TABLE_OFFSET;
-
-    // if index of RT given (fileDescriptor) is invalid return -1
-    if (RTentry < 0 || RTentry > 7) then
+    if (fd < 0 || fd > 7 || [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + fd * 2] != FILE) then
         [retAddr] = -1;
-        goto END;
-    endif;
-    
-    // if the index of file Descriptor is wrong (as in its not a file) return -1 
-    if ([RTStart + RTentry * 2] != FILE) then
-        [retAddr] = -1;
-        goto END;
+        [c+9] = 0;
+        SP = [c + 13];
+        ireturn;
     endif;
 
-    // get the corresponding open table index
-    alias ofTableEntry R7;
-    ofTableEntry = [RTStart + RTentry * 2 + 1];
-    if (syscallNum == INT_CLOSE) then
-        breakpoint;
-        print "closestart";
-        multipush(R0, R1, R2, R3, R4, R5, R6, R7);
-        R1 = CLOSE; // function Num
-        R2 = ofTableEntry; // arg1 (openfiletable index)        
+    alias openFileTableEntry R6;
+    openFileTableEntry = [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + fd * 2 + 1];
+
+    if (syscallnum == INT_CLOSE) then
+        multipush(R0, R1, R2, R3, R4, R5, R6);
+        R1 = CLOSE;
+        R2 = openFileTableEntry;
         call FILE_MANAGER;
-        multipop(R0, R1, R2, R3, R4, R5, R6, R7);
+        multipop(R0, R1, R2, R3, R4, R5, R6);
 
-        // invalidate the resource table entry
-        [RTStart + RTentry * 2 + 0] = -1;
-        [RTStart + RTentry * 2 + 1] = -1;
-
+        [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + fd * 2] = -1;
         [retAddr] = 0;
-        breakpoint;
-        print "closestop";
     endif;
 
-    if (syscallNum == INT_SEEK) then
-        breakpoint;
-        print "seekstart";
-        // R8 -> inodeIndex, R9 -> fileSize, R10 -> lSeek, R11 -> offset
-        alias inodeIndex R8;
-        alias fileSize R9;
-        alias lSeek R10;
-        alias offset R11;
-        inodeIndex = [OPEN_FILE_TABLE + 4 * ofTableEntry];
+    if (syscallnum == INT_SEEK) then
+        alias inodeIndex R7;
+        inodeIndex = [OPEN_FILE_TABLE + 4 * openFileTableEntry];
 
-        // acquire inode lock before modifying seek pointer
-        multipush(R1, R2, R3, R4, R5, R6, R7, R8);
+        multipush(R0, R1, R2, R3, R4, R5, R6, R7);
         R1 = ACQUIRE_INODE;
         R2 = inodeIndex;
         R3 = [SYSTEM_STATUS_TABLE + 1];
         call RESOURCE_MANAGER;
-        // R0 holds return value (-1 on failure)
-        multipop(R1, R2, R3, R4, R5, R6, R7, R8);
+        iter = R0;
+        multipop(R0, R1, R2, R3, R4, R5, R6, R7);
 
-        if (R0 == -1) then
+        if (iter == -1) then
             [retAddr] = -1;
-            goto END;
+            [c+9] = 0;
+            SP = [c + 13];
+            ireturn;
         endif;
 
-        // root file has fixed size of 480 words, others read from inode table
+        alias fileSize R8;
         if (inodeIndex == INODE_ROOT) then
             fileSize = 480;
         else
             fileSize = [INODE_TABLE + inodeIndex * 16 + 2];
         endif;
 
-        lSeek = [OPEN_FILE_TABLE + 4 * ofTableEntry + 2];
+        alias lSeek R9;
+        lSeek = [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2];
+        alias offset R10;
         offset = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + (userSP - 3) % 512];
-        // seeking before start of file is invalid
+
         if (lSeek + offset < 0) then
-            multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11);
+            multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
             R1 = RELEASE_INODE;
             R2 = inodeIndex;
             R3 = [SYSTEM_STATUS_TABLE + 1];
             call RESOURCE_MANAGER;
-            multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11);
+            multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
+
             [retAddr] = -2;
-            goto END;
+            [c+9] = 0;
+            SP = [c + 13];
+            ireturn;
         endif;
 
-        // offset 0 resets seek to beginning; clamp to fileSize if overshooting
         if (offset == 0) then
-            [OPEN_FILE_TABLE + 4 * ofTableEntry + 2] = 0;
+            [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2] = 0;
         else
             if (lSeek + offset > fileSize) then
-                [OPEN_FILE_TABLE + 4 * ofTableEntry + 2] = fileSize;
+                [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2] = fileSize;
             else
-                [OPEN_FILE_TABLE + 4 * ofTableEntry + 2] = lSeek + offset;
+                [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2] = lSeek + offset;
             endif;
         endif;
 
-        multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11);
+        multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
         R1 = RELEASE_INODE;
         R2 = inodeIndex;
         R3 = [SYSTEM_STATUS_TABLE + 1];
         call RESOURCE_MANAGER;
-        multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11);
+        multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
 
         [retAddr] = 0;
-        breakpoint;
-        print "seekstop";
     endif;
 endif;
 
 END:
-[currProcessTable + 9] = 0;
-SP = [currProcessTable + 13];
+[c+9] = 0;
+SP = [c + 13];
 ireturn;
