@@ -1,0 +1,41 @@
+load --os $HOME/myexpos/binary/stage25/finalized_os_startup.xsm
+load --init  $HOME/myexpos/binary/stage25/assignment1/init.xsm
+load --idle $HOME/myexpos/binary/stage25/idle.xsm
+load --library $HOME/myexpos/binary/loadstuff/library.lib
+load --int=4 $HOME/myexpos/binary/stage25/int4_fman.xsm
+load --int=5 $HOME/myexpos/binary/stage25/int5_fedit.xsm
+load --int=6 $HOME/myexpos/binary/stage25/int6_read.xsm
+load --int=7 $HOME/myexpos/binary/stage25/int7_write.xsm
+load --int=8 $HOME/myexpos/binary/stage25/int8_fork.xsm
+load --int=9 $HOME/myexpos/binary/stage25/int9_exec.xsm
+load --int=10 $HOME/myexpos/binary/stage25/int10_exit.xsm
+load --int=11 $HOME/myexpos/binary/stage25/int11_sync.xsm
+load --int=13 $HOME/myexpos/binary/stage25/int13_sema.xsm
+load --int=14 $HOME/myexpos/binary/stage25/int14_lock.xsm
+load --int=15 $HOME/myexpos/binary/stage25/int15_shutdown.xsm
+load --exhandler $HOME/myexpos/binary/stage25/exhandler.xsm
+load --int=timer $HOME/myexpos/binary/stage25/timer_interrupt.xsm
+load --int=disk $HOME/myexpos/binary/stage25/disk_interrupt.xsm
+load --int=console $HOME/myexpos/binary/stage25/console_interrupt.xsm
+load --module 0 $HOME/myexpos/binary/stage25/resource_manager.xsm
+load --module 1 $HOME/myexpos/binary/stage25/process_manager.xsm
+load --module 2 $HOME/myexpos/binary/stage25/memory_manager.xsm
+load --module 3 $HOME/myexpos/binary/stage25/file_manager.xsm
+load --module 4 $HOME/myexpos/binary/stage25/device_manager.xsm
+load --module 5 $HOME/myexpos/binary/stage25/scheduler_module.xsm
+load --module 7 $HOME/myexpos/binary/stage25/boot_module.xsm
+load --exec $HOME/myexpos/binary/stage25/cat.xsm
+load --exec $HOME/myexpos/binary/stage25/cp.xsm
+load --exec $HOME/myexpos/binary/stage25/ls.xsm
+load --exec $HOME/myexpos/binary/stage25/rm.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/pid.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/fork.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/parent.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/child.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/delete.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/pcwrite.xsm
+load --data $HOME/myexpos/binary/stage25/assignment2/sample.dat
+load --data $HOME/myexpos/binary/stage25/assignment2/numbers.dat
+load --exec $HOME/myexpos/binary/stage25/assignment1/create.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment1/reverse.xsm
+load --exec $HOME/myexpos/binary/stage25/assignment2/append.xsm

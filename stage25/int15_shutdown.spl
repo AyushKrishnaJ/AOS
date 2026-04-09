@@ -1,0 +1,84 @@
+alias userSP R0;
+alias syscallNum R1;
+alias retAddr R2;
+alias currProcessTable R3;
+userSP = SP;
+currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+
+// step 1 : extract syscall number
+syscallNum = [[PTBR + (userSP - 5) / 512 * 2] * 512 + (userSP - 5) % 512];
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512 + (userSP - 1) % 512;
+
+// step 2 : switch to kernel stack
+[currProcessTable + 13] = userSP;
+SP = [currProcessTable + 11] * 512 - 1;
+
+// step 3 : set mode flag
+[currProcessTable + 9] = syscallNum;
+
+if ([SYSTEM_STATUS_TABLE + 1] != 1 || [currProcessTable + 3] != 1) then
+    [retAddr] = -1;
+
+    [currProcessTable + 9] = 0;
+    SP = [currProcessTable + 13];
+    ireturn;
+endif;
+
+multipush(R0, R1, R2, R3);
+R1 = KILL_ALL;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+call PROCESS_MANAGER;
+multipop(R0, R1, R2, R3);
+
+alias iter R4;
+iter = 0;
+while (iter < MAX_BUFFER) do
+    if ([BUFFER_TABLE + iter * 4 + 1] == 1) then
+        multipush(R0, R1, R2, R3, R4);
+        R1 = DISK_STORE;
+        R2 = [SYSTEM_STATUS_TABLE + 1];
+        R3 = BUFFER_BASE + iter;
+        R4 = [BUFFER_TABLE + iter * 4 + 0];
+        call DEVICE_MANAGER;
+        multipop(R0, R1, R2, R3, R4);
+    endif;
+    iter = iter + 1;
+endwhile;
+
+// inode table
+multipush(R0, R1, R2, R3);
+R1 = DISK_STORE;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 59;
+R4 = 3;
+call DEVICE_MANAGER;
+multipop(R0, R1, R2, R3);
+
+// user table
+multipush(R0, R1, R2, R3);
+R1 = DISK_STORE;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 60;
+R4 = 4;
+call DEVICE_MANAGER;
+multipop(R0, R1, R2, R3);
+
+// root file
+multipush(R0, R1, R2, R3);
+R1 = DISK_STORE;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 62;
+R4 = 5;
+call DEVICE_MANAGER;
+multipop(R0, R1, R2, R3);
+
+// disk free list
+multipush(R0, R1, R2, R3);
+R1 = DISK_STORE;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 61;
+R4 = 2;
+call DEVICE_MANAGER;
+multipop(R0, R1, R2, R3);
+
+halt;
