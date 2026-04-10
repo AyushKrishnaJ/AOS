@@ -1,0 +1,158 @@
+// c is the process table entry
+alias c R0;
+alias userSP R1;
+alias retAddr R2;
+alias syscallnum R3; 
+alias iter R4;
+alias END R15;
+
+userSP = SP;
+c = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512  + (userSP - 1) % 512;
+syscallnum = [[PTBR + (userSP - 5) / 512 * 2] * 512  + (userSP - 5) % 512];
+
+[c + 9] = syscallnum;
+[c + 13] = SP;
+SP = [c + 11] * 512 - 1;
+
+if (syscallnum == INT_OPEN) then
+    iter = 0;
+    alias resourceEntry R5;
+    resourceEntry = -1;
+    while (iter < 8) do
+        if ([[c + 11] * 512 + RESOURCE_TABLE_OFFSET + iter * 2] == -1) then
+            resourceEntry = iter;
+            break;
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    if (resourceEntry == -1) then
+        [retAddr] = -3;
+        [c+9] = 0;
+        SP = [c + 13];
+        ireturn;
+    endif; 
+
+    alias fileName R6;
+    alias fileTableIndex R7;
+    fileName = [[PTBR + (userSP - 4) / 512 * 2] * 512  + (userSP - 4) % 512];
+    
+    multipush(R0, R1, R2, R3, R4, R5, R6);
+    R1 = OPEN;
+    R2 = fileName;
+    call FILE_MANAGER;
+    fileTableIndex = R0;
+    multipop(R0, R1, R2, R3, R4, R5, R6);
+
+    if (fileTableIndex < 0) then
+        [retAddr] = fileTableIndex;
+        [c+9] = 0;
+        SP = [c + 13];
+        ireturn;
+    endif;
+
+    [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + resourceEntry * 2] = FILE;
+    [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + resourceEntry * 2 + 1] = fileTableIndex;
+    [retAddr] = resourceEntry;
+    
+    [c+9] = 0;
+    SP = [c + 13];
+    ireturn;
+endif;
+
+if (syscallnum == INT_CLOSE || syscallnum == INT_SEEK) then
+    alias fd R5;
+    fd = [[PTBR + (userSP - 4) / 512 * 2] * 512  + (userSP - 4) % 512];
+
+    if (fd < 0 || fd > 7 || [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + fd * 2] != FILE) then
+        [retAddr] = -1;
+        [c+9] = 0;
+        SP = [c + 13];
+        ireturn;
+    endif;
+
+    alias openFileTableEntry R6;
+    openFileTableEntry = [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + fd * 2 + 1];
+
+    if (syscallnum == INT_CLOSE) then
+        multipush(R0, R1, R2, R3, R4, R5, R6);
+        R1 = CLOSE;
+        R2 = openFileTableEntry;
+        call FILE_MANAGER;
+        multipop(R0, R1, R2, R3, R4, R5, R6);
+
+        [[c + 11] * 512 + RESOURCE_TABLE_OFFSET + fd * 2] = -1;
+        [retAddr] = 0;
+    endif;
+
+    if (syscallnum == INT_SEEK) then
+        alias inodeIndex R7;
+        inodeIndex = [OPEN_FILE_TABLE + 4 * openFileTableEntry];
+
+        multipush(R0, R1, R2, R3, R4, R5, R6, R7);
+        R1 = ACQUIRE_INODE;
+        R2 = inodeIndex;
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call RESOURCE_MANAGER;
+        iter = R0;
+        multipop(R0, R1, R2, R3, R4, R5, R6, R7);
+
+        if (iter == -1) then
+            [retAddr] = -1;
+            [c+9] = 0;
+            SP = [c + 13];
+            ireturn;
+        endif;
+
+        alias fileSize R8;
+        if (inodeIndex == INODE_ROOT) then
+            fileSize = 480;
+        else
+            fileSize = [INODE_TABLE + inodeIndex * 16 + 2];
+        endif;
+
+        alias lSeek R9;
+        lSeek = [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2];
+        alias offset R10;
+        offset = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + (userSP - 3) % 512];
+
+        if (lSeek + offset < 0) then
+            multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
+            R1 = RELEASE_INODE;
+            R2 = inodeIndex;
+            R3 = [SYSTEM_STATUS_TABLE + 1];
+            call RESOURCE_MANAGER;
+            multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
+
+            [retAddr] = -2;
+            [c+9] = 0;
+            SP = [c + 13];
+            ireturn;
+        endif;
+
+        if (offset == 0) then
+            [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2] = 0;
+        else
+            if (lSeek + offset > fileSize) then
+                [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2] = fileSize;
+            else
+                [OPEN_FILE_TABLE + 4 * openFileTableEntry + 2] = lSeek + offset;
+            endif;
+        endif;
+
+        multipush(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
+        R1 = RELEASE_INODE;
+        R2 = inodeIndex;
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call RESOURCE_MANAGER;
+        multipop(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
+
+        [retAddr] = 0;
+    endif;
+endif;
+
+END:
+[c+9] = 0;
+SP = [c + 13];
+ireturn;

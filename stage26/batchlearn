@@ -1,0 +1,39 @@
+load --os $HOME/myexpos/binary/stage26/finalized_os_startup.xsm
+load --library $HOME/myexpos/binary/loadstuff/library.lib
+load --idle $HOME/myexpos/binary/stage26/idle.xsm
+load --shell $HOME/myexpos/binary/stage26/shellprogs/shell.xsm
+load --init $HOME/myexpos/binary/stage26/shellprogs/login.xsm
+load --int=4 $HOME/myexpos/binary/stage26/int4_fman.xsm
+load --int=5 $HOME/myexpos/binary/stage26/int5_fedit.xsm
+load --int=6 $HOME/myexpos/binary/stage26/int6_read.xsm
+load --int=7 $HOME/myexpos/binary/stage26/int7_write.xsm
+load --int=8 $HOME/myexpos/binary/stage26/int8_fork.xsm
+load --int=9 $HOME/myexpos/binary/stage26/int9_exec.xsm
+load --int=10 $HOME/myexpos/binary/stage26/int10_exit.xsm
+load --int=11 $HOME/myexpos/binary/stage26/int11_sync.xsm
+load --int=12 $HOME/myexpos/binary/stage26/int12_logout.xsm
+load --int=13 $HOME/myexpos/binary/stage26/int13_sema.xsm
+load --int=14 $HOME/myexpos/binary/stage26/int14_lock.xsm
+load --int=15 $HOME/myexpos/binary/stage26/int15_shutdown.xsm
+load --int=16 $HOME/myexpos/binary/stage26/int16_userman.xsm
+load --int=17 $HOME/myexpos/binary/stage26/int17_login.xsm
+load --exhandler $HOME/myexpos/binary/stage26/exhandler.xsm
+load --int=timer $HOME/myexpos/binary/stage26/timer_interrupt.xsm
+load --int=disk $HOME/myexpos/binary/stage26/disk_interrupt.xsm
+load --int=console $HOME/myexpos/binary/stage26/console_interrupt.xsm
+load --module 0 $HOME/myexpos/binary/stage26/resource_manager.xsm
+load --module 1 $HOME/myexpos/binary/stage26/process_manager.xsm
+load --module 2 $HOME/myexpos/binary/stage26/memory_manager.xsm
+load --module 3 $HOME/myexpos/binary/stage26/file_manager.xsm
+load --module 4 $HOME/myexpos/binary/stage26/device_manager.xsm
+load --module 5 $HOME/myexpos/binary/stage26/scheduler_module.xsm
+load --module 7 $HOME/myexpos/binary/stage26/boot_module.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/ls.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/cat.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/rm.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/cp.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/lu.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/ru.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/touch.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/help.xsm
+load --exec $HOME/myexpos/binary/stage26/shellprogs/echo.xsm

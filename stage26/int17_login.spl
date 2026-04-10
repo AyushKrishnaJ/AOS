@@ -1,0 +1,76 @@
+// INT 17 : Login System Call
+// authenticates user, creates shell process, and puts login to WAIT_PROCESS
+alias userSP R0;
+alias currProcessTable R1;
+alias retAddr R2;
+userSP = SP;
+
+currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512 + (userSP - 1) % 512;
+
+// step 1 : set mode flag to 27 (login syscall)
+[currProcessTable + 9] = INT_LOGIN;
+
+// step 2 : switch to kernel stack
+[currProcessTable + 13] = userSP;
+SP = [currProcessTable + 11] * 512 - 1;
+
+// step 3 : get username and password from user stack
+alias username R3;
+alias password R4;
+username = [[PTBR + (userSP - 4) / 512 * 2] * 512 + (userSP - 4) % 512];
+password = [[PTBR + (userSP - 3) / 512 * 2] * 512 + (userSP - 3) % 512];
+
+// step 4 : only init process (PID 1) can call login
+if ([SYSTEM_STATUS_TABLE + 1] != INIT_PROCESS) then
+    [retAddr] = -2; // permission denied
+else
+    // step 5 : find user in user table
+    alias iter R5;
+    iter = 0;
+
+    while (iter < MAX_USER_NUM) do
+        if ([USER_TABLE + iter * 2 + 0] == username) then
+            break;
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    // step 6 : if user not found, return -1
+    if (iter == MAX_USER_NUM) then
+        [retAddr] = -1; // invalid username
+    else
+        // step 7 : encrypt the input password and compare with stored password
+        alias encPassword R6;
+        encPassword = password;
+        encrypt encPassword;
+
+        if (encPassword != [USER_TABLE + iter * 2 + 1]) then
+            [retAddr] = -1; // password mismatch
+        else
+            // step 8 : login successful, setup shell process
+            // set shell's userID to logged in user and state to CREATED
+            [PROCESS_TABLE + SHELL_PROCESS * 16 + 3] = iter; // userID
+            [PROCESS_TABLE + SHELL_PROCESS * 16 + 4] = CREATED; // state
+
+            // step 9 : put login process (init) to sleep, waiting for shell to exit
+            [PROCESS_TABLE + INIT_PROCESS * 16 + 4] = WAIT_PROCESS;
+            [PROCESS_TABLE + INIT_PROCESS * 16 + 5] = SHELL_PROCESS; // waiting for shell
+
+            // step 10 : set current user ID in system status table
+            [SYSTEM_STATUS_TABLE + 0] = iter;
+
+            // step 11 : invoke scheduler
+            multipush(R0, R1, R2, R3, R4, R5, R6);
+            call SCHEDULER;
+            multipop(R0, R1, R2, R3, R4, R5, R6);
+
+            [retAddr] = 0; // success
+        endif;
+    endif;
+endif;
+
+// step : return after reseting mode flag and switching to user stack
+[currProcessTable + 9] = 0;
+SP = [currProcessTable + 13];
+ireturn;

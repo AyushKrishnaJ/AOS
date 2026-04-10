@@ -1,0 +1,215 @@
+// INT 16 : User Management (Newusr, Remusr, Setpwd, Getuname, Getuid)
+alias userSP R0;
+alias currProcessTable R1;
+alias syscallNum R2;
+alias retAddr R3;
+alias arg1 R4;
+
+userSP = SP;
+currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+
+// step 1 : extract syscall number, arg1 (username), and return address
+syscallNum = [[PTBR + (userSP - 5) / 512 * 2] * 512 + (userSP - 5) % 512];
+arg1 = [[PTBR + (userSP - 4) / 512 * 2] * 512 + (userSP - 4) % 512];
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512 + (userSP - 1) % 512;
+
+// step 2 : set mode flag
+[currProcessTable + 9] = syscallNum;
+
+// step 3 : switch to kernel stack
+[currProcessTable + 13] = userSP;
+SP = [currProcessTable + 11] * 512 - 1;
+
+// --------------------------------- Newusr (syscall 22) ---------------------------------
+// creates a new user with given username and password
+// return 0 : success
+// return -1 : user already exists
+// return -2 : permission denied (not root or not shell)
+// return -3 : user table full
+if (syscallNum == INT_NEWUSR) then
+    // only root user running shell can create new users
+    if ([SYSTEM_STATUS_TABLE + 0] != ROOT || [SYSTEM_STATUS_TABLE + 1] != SHELL_PROCESS) then
+        [retAddr] = -2;
+    else
+        alias password R5;
+        alias iter R6;
+        password = [[PTBR + (userSP - 3) / 512 * 2] * 512 + (userSP - 3) % 512];
+        iter = 0;
+
+        // check if user already exists or find a free entry
+        while (iter < MAX_USER_NUM) do
+            if ([USER_TABLE + iter * 2 + 0] == arg1 || [USER_TABLE + iter * 2 + 0] == -1) then
+                break;
+            endif;
+            iter = iter + 1;
+        endwhile;
+
+        // if max user count reached, return -3
+        if (iter == MAX_USER_NUM) then
+            [retAddr] = -3;
+        else
+            // if user already exists, return -1
+            if ([USER_TABLE + iter * 2 + 0] == arg1) then
+                [retAddr] = -1;
+            else
+                // encrypt password and store entry in user table
+                alias encPassword R7;
+                encPassword = password;
+                encrypt encPassword;
+
+                [USER_TABLE + iter * 2 + 0] = arg1;
+                [USER_TABLE + iter * 2 + 1] = encPassword;
+
+                [retAddr] = 0;
+            endif;
+        endif;
+    endif;
+endif;
+
+// --------------------------------- Remusr (syscall 23) ---------------------------------
+// removes an existing user (cannot remove root or kernel)
+// return 0 : success
+// return -1 : user not found
+// return -2 : permission denied (not root/not shell, or trying to remove root/kernel)
+// return -3 : user has undeleted files on disk
+if (syscallNum == INT_REMUSR) then
+    // only root user running shell can remove users
+    if ([SYSTEM_STATUS_TABLE + 0] != ROOT || [SYSTEM_STATUS_TABLE + 1] != SHELL_PROCESS) then
+        [retAddr] = -2;
+    else
+        // cannot remove root or kernel users
+        if (arg1 == "kernel" || arg1 == "root") then
+            [retAddr] = -2;
+        else
+            alias iter R5;
+            iter = 0;
+
+            // find user in user table
+            while (iter < MAX_USER_NUM) do
+                if ([USER_TABLE + iter * 2 + 0] == arg1) then
+                    break;
+                endif;
+                iter = iter + 1;
+            endwhile;
+
+            // user not found
+            if (iter == MAX_USER_NUM) then
+                [retAddr] = -1;
+            else
+                // check if user has any files on disk
+                alias fileIter R6;
+                fileIter = 0;
+                while (fileIter < MAX_FILE_NUM) do
+                    if ([ROOT_FILE + fileIter * 8 + 3] == arg1) then
+                        break;
+                    endif;
+                    fileIter = fileIter + 1;
+                endwhile;
+
+                // if user still has files, return -3
+                if (fileIter != MAX_FILE_NUM) then
+                    [retAddr] = -3;
+                else
+                    // invalidate user table entry
+                    [USER_TABLE + iter * 2 + 0] = -1;
+                    [USER_TABLE + iter * 2 + 1] = -1;
+                    [retAddr] = 0;
+                endif;
+            endif;
+        endif;
+    endif;
+endif;
+
+// --------------------------------- Setpwd (syscall 24) ---------------------------------
+// sets password for a user (only self or root can do this)
+// return 0 : success
+// return -1 : permission denied (not shell, or not root and not same user)
+// return -2 : user not found
+if (syscallNum == INT_SETPWD) then
+    // only shell process can call setpwd
+    if ([SYSTEM_STATUS_TABLE + 1] != SHELL_PROCESS) then
+        [retAddr] = -1;
+    else
+        alias password R5;
+        alias iter R6;
+        password = [[PTBR + (userSP - 3) / 512 * 2] * 512 + (userSP - 3) % 512];
+        iter = 0;
+
+        // find user in user table
+        while (iter < MAX_USER_NUM) do
+            if ([USER_TABLE + iter * 2 + 0] == arg1) then
+                break;
+            endif;
+            iter = iter + 1;
+        endwhile;
+
+        // user not found
+        if (iter == MAX_USER_NUM) then
+            [retAddr] = -2;
+        else
+            // only root or the same user can change password
+            if (iter != [SYSTEM_STATUS_TABLE + 0] && [SYSTEM_STATUS_TABLE + 0] != ROOT) then
+                [retAddr] = -1;
+            else
+                // encrypt and store new password
+                alias encPassword R7;
+                encPassword = password;
+                encrypt encPassword;
+                [USER_TABLE + iter * 2 + 1] = encPassword;
+
+                [retAddr] = 0;
+            endif;
+        endif;
+    endif;
+endif;
+
+// --------------------------------- Getuname (syscall 25) ---------------------------------
+// returns the username for a given user ID
+// return username : success
+// return -1 : invalid user ID
+if (syscallNum == INT_GETUNAME) then
+    // arg1 here is the userID (not username)
+    alias userID R5;
+    userID = arg1;
+
+    // check if userID is valid
+    if (userID < 0 || userID > MAX_USER_NUM) then
+        [retAddr] = -1;
+    else
+        // check if entry exists
+        if ([USER_TABLE + userID * 2 + 0] == -1) then
+            [retAddr] = -1;
+        else
+            [retAddr] = [USER_TABLE + userID * 2 + 0];
+        endif;
+    endif;
+endif;
+
+// --------------------------------- Getuid (syscall 26) ---------------------------------
+// returns the user ID for a given username
+// return userID : success
+// return -1 : user not found
+if (syscallNum == INT_GETUID) then
+    alias iter R5;
+    iter = 0;
+
+    // search user table for matching username
+    while (iter < MAX_USER_NUM) do
+        if ([USER_TABLE + iter * 2 + 0] == arg1) then
+            break;
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    // return index if found, -1 otherwise
+    if (iter == MAX_USER_NUM) then
+        [retAddr] = -1;
+    else
+        [retAddr] = iter;
+    endif;
+endif;
+
+// step : return after reseting mode flag and switching to user stack
+[currProcessTable + 9] = 0;
+SP = [currProcessTable + 13];
+ireturn;

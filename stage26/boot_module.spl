@@ -1,0 +1,194 @@
+// --------------------------------- INIT PROCESS (PID 1) ---------------------------------
+alias processTableEntry R1;
+processTableEntry = PROCESS_TABLE + 16;
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR = 10;
+
+// page table for login/init process
+// library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+// heap (not allocated initially)
+[PTBR + 4] = -1;
+[PTBR + 5] = "0000";
+[PTBR + 6] = -1;
+[PTBR + 7] = "0000";
+
+// code (only first code page loaded, rest demand paged)
+[PTBR + 8] = 65;
+[PTBR + 9] = "0100";
+[PTBR + 10] = -1;
+[PTBR + 11] = "0000";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+// stack (only first stack page allocated)
+[PTBR + 16] = 66;
+[PTBR + 17] = "0110";
+[PTBR + 18] = -1;
+[PTBR + 19] = "0000";
+
+// process table for init
+[processTableEntry + 1] = 1; // PID
+[processTableEntry + 3] = 1; // UserID
+[processTableEntry + 4] = CREATED; // State
+[processTableEntry + 11] = 77; // User Area Page
+[processTableEntry + 12] = 0; // KPTR
+[processTableEntry + 13] = 8 * 512; // UPTR
+[processTableEntry + 14] = PTBR; // PTBR
+[processTableEntry + 15] = PTLR; // PTLR
+
+// setting entry point for init : physical address where the stack stores the virtual entry point
+[66 * 512] = [65 * 512 + 1];
+
+// --------------------------------- SHELL PROCESS (PID 2) ---------------------------------
+processTableEntry = PROCESS_TABLE + 32;
+PTBR = PAGE_TABLE_BASE + 40;
+PTLR = 10;
+
+// page table for shell process
+// library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+// heap (not allocated initially)
+[PTBR + 4] = -1;
+[PTBR + 5] = "0000";
+[PTBR + 6] = -1;
+[PTBR + 7] = "0000";
+
+// code (shell code pages loaded from disk blocks 9,10)
+[PTBR + 8] = 67;
+[PTBR + 9] = "0100";
+[PTBR + 10] = 68;
+[PTBR + 11] = "0100";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+// stack
+[PTBR + 16] = 78;
+[PTBR + 17] = "0110";
+[PTBR + 18] = 79;
+[PTBR + 19] = "0110";
+
+// process table for shell
+[processTableEntry + 1] = 2; // PID
+[processTableEntry + 2] = 1; // PPID (init is parent)
+[processTableEntry + 4] = TERMINATED; // State (shell starts terminated, login process will wake it)
+[processTableEntry + 11] = 80; // User Area Page
+[processTableEntry + 12] = 0; // KPTR
+[processTableEntry + 13] = 8 * 512; // UPTR
+[processTableEntry + 14] = PTBR; // PTBR
+[processTableEntry + 15] = PTLR; // PTLR
+
+// setting entry point for shell process
+[78 * 512] = [67 * 512 + 1];
+
+// --------------------------------- REMAINING PROCESS TABLE ENTRIES ---------------------------------
+// setting all other process table entries (PID 3 to 15) to terminated
+alias iter R0;
+iter = 3;
+while (iter < MAX_PROC_NUM) do
+    [PROCESS_TABLE + iter * 16 + 4] = TERMINATED;
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- MEMORY FREE LIST INITIALIZATION ---------------------------------
+// first 83 pages (0-82) are used by OS, set to 1. Rest are free, set to 0
+iter = 0;
+while (iter <= 82) do
+    [MEMORY_FREE_LIST + iter] = 1;
+    iter = iter + 1;
+endwhile;
+
+while (iter < NUM_MEM_PAGES) do
+    [MEMORY_FREE_LIST + iter] = 0;
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- DISK MAP TABLE INITIALIZATION ---------------------------------
+// invalidate disk map table for init process (PID 1)
+iter = 0;
+while (iter < 10) do
+    [DISK_MAP_TABLE + 10 + iter] = -1;
+    iter = iter + 1;
+endwhile;
+
+// per process resource table for init (set all entries to -1)
+iter = 512 - 16;
+while (iter < 512) do
+    [[PROCESS_TABLE + 16 + 11] * 512 + iter] = -1;
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- DISK MAP TABLE FOR SHELL (PID 2) ---------------------------------
+alias diskMapTableEntry R2;
+diskMapTableEntry = DISK_MAP_TABLE + 20;
+
+[diskMapTableEntry + 0] = -1;
+[diskMapTableEntry + 1] = -1;
+[diskMapTableEntry + 2] = -1;
+[diskMapTableEntry + 3] = -1;
+[diskMapTableEntry + 4] = 9; // shell code block 1
+[diskMapTableEntry + 5] = 10; // shell code block 2
+[diskMapTableEntry + 6] = -1;
+[diskMapTableEntry + 7] = -1;
+[diskMapTableEntry + 8] = -1;
+[diskMapTableEntry + 9] = -1;
+
+// --------------------------------- SEMAPHORE TABLE INITIALIZATION ---------------------------------
+iter = 0;
+while (iter < MAX_SEM_COUNT) do
+    [SEMAPHORE_TABLE + iter * 4 + 0] = -1; // LOCKING_PID
+    [SEMAPHORE_TABLE + iter * 4 + 1] = 0; // PROCESS_COUNT
+
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- FILE STATUS TABLE INITIALIZATION ---------------------------------
+iter = 0;
+while (iter < MAX_FILE_NUM) do
+    [FILE_STATUS_TABLE + iter * 4 + 0] = -1; // LOCKING_PID
+    [FILE_STATUS_TABLE + iter * 4 + 1] = -1; // FILE_OPEN_COUNT
+
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- BUFFER TABLE INITIALIZATION ---------------------------------
+iter = 0;
+while (iter < MAX_BUFFER) do
+    [BUFFER_TABLE + iter * 4 + 0] = -1; // BLOCK_NUMBER
+    [BUFFER_TABLE + iter * 4 + 1] = 0; // DIRTY_BIT
+    [BUFFER_TABLE + iter * 4 + 2] = -1; // LOCKING_PID
+
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- OPEN FILE TABLE INITIALIZATION ---------------------------------
+iter = 0;
+while (iter < MAX_OPENFILE_NUM) do
+    [OPEN_FILE_TABLE + iter * 4 + 0] = -1; // INODE_INDEX
+    [OPEN_FILE_TABLE + iter * 4 + 1] = 0; // OPEN_INSTANCE_COUNT
+
+    iter = iter + 1;
+endwhile;
+
+// --------------------------------- SYSTEM STATUS TABLE ---------------------------------
+[TERMINAL_STATUS_TABLE + 0] = 0;
+[DISK_STATUS_TABLE + 0] = 0;
+
+// MEM_FREE_COUNT = 128 - 83 = 45 (pages 0-82 are used)
+[SYSTEM_STATUS_TABLE + 2] = 45;
+// WAIT_MEM_COUNT = 0
+[SYSTEM_STATUS_TABLE + 3] = 0;
+
+return;

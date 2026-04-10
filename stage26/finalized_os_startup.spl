@@ -1,0 +1,179 @@
+// loading exception handler from disk to memory
+loadi(2, 15);
+loadi(3, 16);
+
+// loading timer interrupt from disk to memory
+loadi(4, 17);
+loadi(5, 18);
+
+// loading disk interrupt from disk to memory
+loadi(6, 19);
+loadi(7, 20);
+
+// loading console interrupt from disk to memory
+loadi(8, 21);
+loadi(9, 22);
+
+// int 4 (create/delete)
+loadi(10, 23);
+loadi(11, 24);
+
+// int 5 (open/close/seek)
+loadi(12, 25);
+loadi(13, 26);
+
+// int 6 (read)
+loadi(14, 27);
+loadi(15, 28);
+
+// int 7 (write)
+loadi(16, 29);
+loadi(17, 30);
+
+// int 8 (fork)
+loadi(18, 31);
+loadi(19, 32);
+
+// int 9 (exec)
+loadi(20, 33);
+loadi(21, 34);
+
+// int 10 (exit)
+loadi(22, 35);
+loadi(23, 36);
+
+// int 11 (getpid/getppid/wait/signal)
+loadi(24, 37);
+loadi(25, 38);
+
+// int 12 (logout)
+loadi(26, 39);
+loadi(27, 40);
+
+// int 13 (semget/semrelease)
+loadi(28, 41);
+loadi(29, 42);
+
+// int 14 (semlock/semunlock)
+loadi(30, 43);
+loadi(31, 44);
+
+// int 15 (shutdown)
+loadi(32, 45);
+loadi(33, 46);
+
+// int 16 (user management - newusr/remusr/setpwd/getuname/getuid)
+loadi(34, 47);
+loadi(35, 48);
+
+// int 17 (login)
+loadi(36, 49);
+loadi(37, 50);
+
+// resource manager module (mod 0)
+loadi(40, 53);
+loadi(41, 54);
+
+// process manager module (mod 1)
+loadi(42, 55);
+loadi(43, 56);
+
+// memory manager module (mod 2)
+loadi(44, 57);
+loadi(45, 58);
+
+// file manager module (mod 3)
+loadi(46, 59);
+loadi(47, 60);
+
+// device manager module (mod 4)
+loadi(48, 61);
+loadi(49, 62);
+
+// scheduler module (mod 5)
+loadi(50, 63);
+loadi(51, 64);
+
+// boot module (mod 7)
+loadi(54, 67);
+loadi(55, 68);
+
+// inode table
+loadi(59, 3);
+loadi(60, 4);
+
+// disk free list
+loadi(61, 2);
+
+// root file
+loadi(62, 5);
+
+// library
+loadi(63, 13);
+loadi(64, 14);
+
+// login/init program
+loadi(65, 7);
+
+// shell program
+loadi(67, 9);
+loadi(68, 10);
+
+// idle process code
+loadi(69, 11);
+
+// setting SP to kernel stack of idle process for boot module call
+SP = 82 * 512 - 1;
+
+// calling the boot module to setup process tables, page tables, etc.
+call BOOT_MODULE;
+
+// --------------------------------- IDLE PROCESS (PID 0) ---------------------------------
+PTBR = PAGE_TABLE_BASE;
+PTLR = 10;
+
+// page table for idle process
+// library (not needed for idle)
+[PTBR + 0] = -1;
+[PTBR + 1] = "0000";
+[PTBR + 2] = -1;
+[PTBR + 3] = "0000";
+
+// heap (not needed for idle)
+[PTBR + 4] = -1;
+[PTBR + 5] = "0000";
+[PTBR + 6] = -1;
+[PTBR + 7] = "0000";
+
+// code
+[PTBR + 8] = 69;
+[PTBR + 9] = "0100";
+[PTBR + 10] = -1;
+[PTBR + 11] = "0000";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+// stack
+[PTBR + 16] = 70;
+[PTBR + 17] = "0110";
+[PTBR + 18] = -1;
+[PTBR + 19] = "0000";
+
+// process table for idle
+[PROCESS_TABLE + 1] = 0; // PID
+[PROCESS_TABLE + 4] = RUNNING; // State
+[PROCESS_TABLE + 11] = 76; // User Area Page
+[PROCESS_TABLE + 12] = 0; // KPTR
+[PROCESS_TABLE + 13] = 8 * 512; // UPTR
+[PROCESS_TABLE + 14] = PAGE_TABLE_BASE; // PTBR
+[PROCESS_TABLE + 15] = 10; // PTLR
+
+// setting entry point for idle process
+[70 * 512] = [69 * 512 + 1];
+
+// stack pointer set to logical address of stack
+SP = 8 * 512;
+
+ireturn;

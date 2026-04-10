@@ -1,0 +1,79 @@
+// step 1 : extract syscall number
+alias userSP R0;
+userSP = SP;
+
+alias syscallNum R1;
+alias retAddr R2;
+syscallNum = [[PTBR + (userSP - 5) / 512 * 2] * 512 + (userSP - 5) % 512];
+retAddr = [PTBR + (userSP - 1) / 512 * 2] * 512 + (userSP - 1) % 512;
+
+// step 2 : switch to kernel stack
+alias currProcessTable R3;
+currProcessTable = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+
+[currProcessTable + 13] = userSP;
+SP = [currProcessTable + 11] * 512 - 1;
+
+// step 3 : set mode flag
+[currProcessTable + 9] = syscallNum;
+
+// wait syscall
+if (syscallNum == INT_WAIT) then
+    // step 1 : extract pid from arguement 1
+    alias arg1 R4;
+    arg1 = [[PTBR + (userSP - 4) / 512 * 2] * 512 + (userSP - 4) % 512];
+
+    // step 2 : check if pid is valid
+    // case 1 : process is in terminated state, case 2 : process can't wait for itself, case 3 : process is not in valid range (0 to 15)
+    if ([PROCESS_TABLE + arg1 * 16 + 4] == TERMINATED || [SYSTEM_STATUS_TABLE + 1] == arg1 || arg1 < 0 || arg1 > 15) then
+        [retAddr] = -1; // setting return value
+        [currProcessTable + 9] = 0; // reset mode flag
+        SP = [currProcessTable + 13]; // switch to user stack 
+        ireturn;
+    endif;
+
+    // step 3 : if wait conditions are valid, then set state of process to (WAITING, pid)
+    [currProcessTable + 4] = WAIT_PROCESS;
+    [currProcessTable + 5] = arg1;
+
+    // step 4 : invoke scheduler
+    multipush(R0, R1, R2, R3, R4);
+    call SCHEDULER;
+    multipop(R0, R1, R2, R3, R4);
+
+    // step 5 : return after reseting mode flag  
+    [retAddr] = 0; // setting return value
+endif;
+
+// signal syscall
+if (syscallNum == INT_SIGNAL) then
+    // step 1 : iterate thru all process and check if any process was in wait state and was waiting for this process to send a signal or terminate
+    alias iter R4;
+    iter = 0;
+    
+    while (iter < 16) do
+        if ([PROCESS_TABLE + iter * 16 + 4] == WAIT_PROCESS && [PROCESS_TABLE + iter * 16 + 5] == [SYSTEM_STATUS_TABLE + 1]) then
+            [PROCESS_TABLE + iter * 16 + 4] = READY;
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    // step 2 : return after reseting mode flag
+    [retAddr] = 0; // setting return value
+endif;
+
+// getpid syscall
+if (syscallNum == INT_GETPID) then
+   // step 1 : return process id 
+   [retAddr] = [currProcessTable + 1];
+endif;
+
+// getppid syscall
+if (syscallNum == INT_GETPPID) then
+   // step 1 : return parent process id 
+   [retAddr] = [currProcessTable + 2];
+endif;
+
+[currProcessTable + 9] = 0;
+SP = [currProcessTable + 13];
+ireturn;
